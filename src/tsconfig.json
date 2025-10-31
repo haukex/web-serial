@@ -1,0 +1,19 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "composite": true,
+    "target": "ES2022",
+    "lib": ["ES2022","DOM"],
+    "module": "ES2022",
+    "moduleResolution": "Node",
+    "resolveJsonModule": true,
+    "types": [
+      "node",
+      "@types/webpack-env",
+      "./JSX",
+    ],
+    "jsx": "react",
+    "jsxFactory": "jsx",
+    "jsxFragmentFactory": "jsxFragment",
+  }
+}
