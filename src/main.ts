@@ -16,6 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+import { SerialInterface } from './serial'
 import { assert } from './utils'
 
 window.addEventListener('error', event =>
@@ -50,5 +51,7 @@ export class GlobalContext {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
-  new GlobalContext()
+  const ctx = new GlobalContext()
+  const ser = await new SerialInterface(ctx).initialize()
+  ctx.main.appendChild(ser.el)
 })

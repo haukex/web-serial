@@ -11,6 +11,7 @@
       "node",
       "@types/webpack-env",
       "./JSX",
+      "@types/w3c-web-serial"
     ],
     "jsx": "react",
     "jsxFactory": "jsx",
