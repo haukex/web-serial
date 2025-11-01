@@ -19,7 +19,7 @@
     "all-test": "npm run build"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.0",
+    "@eslint/js": ">=9.38.0 <9.39.0 || >9.39.0",
     "@parcel/transformer-sass": "^2.16.0",
     "@parcel/transformer-typescript-tsc": "^2.16.0",
     "@stylistic/eslint-plugin": "^5.5.0",
@@ -27,7 +27,7 @@
     "@types/node": "^24.9.2",
     "@types/w3c-web-serial": "^1.0.8",
     "@types/webpack-env": "^1.18.8",
-    "eslint": "^9.39.0",
+    "eslint": ">=9.38.0 <9.39.0 || >9.39.0",
     "parcel": "^2.16.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.2"
