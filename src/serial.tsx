@@ -56,8 +56,8 @@ export class SerialInterface {
         </div>
       </div>
       : <div class="alert alert-danger" role="alert">Web Serial API is not supported in this browser.
-        (<a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API#browser_compatibility" target="_blank"
-        class="ms-1">Browser compatibility table</a>)</div>
+        (<a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API#browser_compatibility"
+        target="_blank">Browser compatibility table</a>)</div>
   }
 
   private securityError(ex :DOMException) {
