@@ -1,0 +1,21 @@
+name: All Tests
+on:
+  push:
+    # only on commits, not on tags
+    branches:
+      - '**'
+  pull_request:
+jobs:
+  tests:
+    name: All Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: 'npm'
+      - name: Install Dependencies
+        run: npm ci
+      - name: Tests
+        run: npm run all-test
