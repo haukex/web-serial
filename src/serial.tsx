@@ -16,13 +16,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-import { jsx, safeCastElement } from './jsx-dom'
+import { jsx, jsxFragment, safeCastElement } from './jsx-dom'
 import { GlobalContext } from './main'
 import { userInput } from './dialogs'
 import { Collapse } from 'bootstrap'
 
 // https://developer.chrome.com/docs/capabilities/serial
 // https://stackblitz.com/edit/typescript-web-serial?file=index.ts
+
+const BT_BASE_UUID = '00000000-0000-1000-8000-00805F9B34FB'
 
 export function portString(p :SerialPort) :string {
   const inf = p.getInfo()
@@ -278,12 +280,25 @@ export class SerialInterface {
       if (port!=null) await this.connect(port)
     })
     this.btnAddBlue.addEventListener('click', async () => {
-      // The user entering a string that is not a UUID apparently causes requestPort() to completely blow up, so be restrictive
-      const uuid = (await userInput(this.ctx, 'Add custom Bluetooth Service Class ID',
-        { pattern: '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$',
-          placeholder: '12345678-12ab-34cd-56ef-ab0123456789' })).trim().toLowerCase()
+      /* The user entering a string that is not a UUID apparently causes requestPort() to completely blow up, so be restrictive.
+       * Apparently even the hex digits being uppercase causes a hard crash...
+       * Appears to be this issue: https://issues.chromium.org/issues/328304137 */
+      const haveUuids = Array.from(bluetoothUuids)
+      haveUuids.sort()
+      const uuid = (await userInput(this.ctx,
+        { title: <><i class="bi-bluetooth me-1"/> Add custom Bluetooth Service Class ID</>,
+          message: haveUuids.length ? <div>Already defined:<ul>{
+            haveUuids.map(uuid => <li>{uuid.toUpperCase()}</li>)
+          }</ul></div> : '',
+          pattern: '^([0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}|(0x)?[0-9a-fA-F]{1,8})$',
+          placeholder: BT_BASE_UUID.toUpperCase() })).trim().toLowerCase()
       if (uuid.match(/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/)) {
         bluetoothUuids.add(uuid)
+        console.log('UUIDs', bluetoothUuids)
+      }
+      else if (uuid.match(/^(?:0x)?[0-9a-f]{1,8}$/)) {  // short form ID
+        bluetoothUuids.add( (uuid.startsWith('0x') ? uuid.substring(2) : uuid).padEnd(8,'0')
+          + BT_BASE_UUID.substring(8).toLowerCase() )
         console.log('UUIDs', bluetoothUuids)
       }
     })
