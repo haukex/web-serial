@@ -280,11 +280,12 @@ export class SerialInterface {
 
     navigator.serial.addEventListener('connect', ({ target: port }) => {
       // A port that the user has previously given permission for has appeared
-      console.debug('connect', port instanceof SerialPort ? portString(port) : port)
+      console.debug('connect event', port instanceof SerialPort ? portString(port) : port)
       return this.redrawPorts()
+      //TODO Later: Auto-(re-)connect to a port if it was just disconnected?
     })
     navigator.serial.addEventListener('disconnect', ({ target: port }) => {
-      console.debug('disconnect', port instanceof SerialPort ? portString(port) : port)
+      console.debug('disconnect event', port instanceof SerialPort ? portString(port) : port)
       return this.redrawPorts()
     })
     await this.redrawPorts()
@@ -337,7 +338,7 @@ export class SerialInterface {
 
   private async connect(port :SerialPort) {
     const opt = this.settings.getSerialOptions()
-    console.debug('connect', portString(port), opt)
+    console.debug('open', portString(port), opt)
     this.updateState({ connected: true })
 
     await port.open(opt)
@@ -351,28 +352,30 @@ export class SerialInterface {
     const ui8str = (b :Uint8Array) => Array.prototype.map.call(b, (x :number) => x.toString(16).padStart(2,'0')).join('')
 
     const readTextLoop = async () => {
-      while (true) {
-        let rv :ReadableStreamReadResult<string>
-        try { rv = await textReader.read() }
-        /* Since this is a teed reader, assume that we should be getting the same errors as the other one, so handle them there. */
-        catch (ex) { console.debug('Breaking readTextLoop because', ex); break }
-        if (rv.value!=undefined)
-          console.debug('read text', rv.value)  //TODO: Replace with output text boxes
-        if (rv.done) break
-      }
-      textReader.releaseLock()
+      try {
+        while (true) {
+          let rv :ReadableStreamReadResult<string>
+          try { rv = await textReader.read() }
+          /* Since this is a teed reader, assume that we should be getting the same errors as the other one, so handle them there. */
+          catch (ex) { console.debug('Breaking readTextLoop because', ex); break }
+          if (rv.value!=undefined)
+            console.debug('read text', rv.value)  //TODO: Replace with output text boxes
+          if (rv.done) break
+        }
+      } finally { textReader.releaseLock() }
     }
     const readBytesLoop = async () => {
-      while (true) {
-        let rv :ReadableStreamReadResult<Uint8Array>
-        try { rv = await bytesReader.read() }
-        /* If port.readable is still set afterwards, this is non-fatal, such as a buffer overflow, framing error, or parity error. */
-        catch (ex) { console.warn('Breaking readBytesLoop because', ex); break }
-        if (rv.value!=undefined)
-          console.debug('read bytes', ui8str(rv.value))  //TODO: Replace with output text boxes
-        if (rv.done) break
-      }
-      bytesReader.releaseLock()
+      try {
+        while (true) {
+          let rv :ReadableStreamReadResult<Uint8Array>
+          try { rv = await bytesReader.read() }
+          /* If port.readable is still set afterwards, this is non-fatal, such as a buffer overflow, framing error, or parity error. */
+          catch (ex) { console.warn('Breaking readBytesLoop because', ex); break }
+          if (rv.value!=undefined)
+            console.debug('read bytes', ui8str(rv.value))  //TODO: Replace with output text boxes
+          if (rv.done) break
+        }
+      } finally { bytesReader.releaseLock() }
     }
 
     const readUntilClosed = async () => {
