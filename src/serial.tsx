@@ -23,9 +23,6 @@ import { Collapse } from 'bootstrap'
 
 // spell-checker: ignore BTUUID RFCOMM
 
-// https://developer.chrome.com/docs/capabilities/serial
-// https://stackblitz.com/edit/typescript-web-serial?file=index.ts
-
 export function portString(p :SerialPort) :string {
   const inf = p.getInfo()
   const usb = inf.usbVendorId && inf.usbProductId
@@ -47,6 +44,7 @@ class SerialSettings {
   private readonly stopBits2
   private readonly selParity
   private readonly selFlowCtrl
+  private readonly selEncoding
   constructor(ctx :GlobalContext) {
     const datalistBaud = safeCastElement(HTMLDataListElement,
       <datalist id={ctx.genId()}>
@@ -81,6 +79,14 @@ class SerialSettings {
         <option value="none" selected>None</option>
         <option value="hardware">Hardware</option>
       </select>)
+    //TODO Later: Could list a whole lot more Encodings from https://developer.mozilla.org/en-US/docs/Web/API/Encoding_API/Encodings
+    this.selEncoding = safeCastElement(HTMLSelectElement,
+      <select class="form-select" id={ctx.genId()}>
+        <option value="utf-8" selected>UTF-8</option>
+        <option value="windows-1252">CP1252 / Latin-1</option>
+        <option value="utf-16le">UTF-16 (LE)</option>
+        <option value="utf-16be">UTF-16 BE</option>
+      </select>)
     this.el =
       <div class="collapse" id={ctx.genId()}>
         <div class="card card-body gap-2">
@@ -106,6 +112,7 @@ class SerialSettings {
           </div>
           <div class="input-group"><label class="input-group-text" for={this.selParity.id}>Parity</label>{this.selParity}</div>
           <div class="input-group"><label class="input-group-text" for={this.selFlowCtrl.id}>Flow Control</label>{this.selFlowCtrl}</div>
+          <div class="input-group"><label class="input-group-text" for={this.selEncoding.id}>Input Encoding</label>{this.selEncoding}</div>
         </div>
       </div>
     this.btnExpand = safeCastElement(HTMLButtonElement,
@@ -121,7 +128,7 @@ class SerialSettings {
       this.btnExpand.classList.remove('btn-primary')
     })
   }
-  getOptions() :SerialOptions {
+  getSerialOptions() :SerialOptions {
     return {
       baudRate: Number.isFinite(this.inpBaudRate.valueAsNumber) && this.inpBaudRate.valueAsNumber>0
         ? this.inpBaudRate.valueAsNumber : 115200,
@@ -130,6 +137,9 @@ class SerialSettings {
       parity: this.selParity.value==='even' ? 'even' : this.selParity.value==='odd' ? 'odd' : 'none',
       flowControl: this.selFlowCtrl.value==='hardware' ? 'hardware' : 'none'
     }
+  }
+  getEncoding() :string {
+    return this.selEncoding.value
   }
   setDisabled(disabled :boolean = true) {
     //this.btnExpand.disabled = disabled
@@ -140,6 +150,7 @@ class SerialSettings {
     this.stopBits2.disabled = disabled
     this.selParity.disabled = disabled
     this.selFlowCtrl.disabled = disabled
+    this.selEncoding.disabled = disabled
   }
   hide() {
     Collapse.getOrCreateInstance(this.el, { toggle: false }).hide()
@@ -177,7 +188,7 @@ class BTUUID {
     this._uuids.push(uuid)
     this._uuids.sort()
     await this.ctx.storage.settings.set('bluetoothUuids', this._uuids)
-    console.log('UUIDs', this._uuids)
+    console.debug('UUIDs', this._uuids)
     return true
   }
 }
@@ -325,11 +336,100 @@ export class SerialInterface {
   }
 
   private async connect(port :SerialPort) {
-    const opt = this.settings.getOptions()
+    const opt = this.settings.getSerialOptions()
     console.debug('connect', portString(port), opt)
     this.updateState({ connected: true })
-    setTimeout(() => this.updateState({ connected: false }), 5_000)  //TODO
-    //alert(`Connect to ${portString(port)} not yet implemented`)
+
+    await port.open(opt)
+
+    // https://developer.chrome.com/docs/capabilities/serial
+
+    let keepReading = true
+    let textReader :ReadableStreamDefaultReader<string>
+    let bytesReader :ReadableStreamDefaultReader<Uint8Array>
+
+    const ui8str = (b :Uint8Array) => Array.prototype.map.call(b, (x :number) => x.toString(16).padStart(2,'0')).join('')
+
+    const readTextLoop = async () => {
+      while (true) {
+        let rv :ReadableStreamReadResult<string>
+        try { rv = await textReader.read() }
+        /* Since this is a teed reader, assume that we should be getting the same errors as the other one, so handle them there. */
+        catch (ex) { console.debug('Breaking readTextLoop because', ex); break }
+        if (rv.value!=undefined)
+          console.debug('read text', rv.value)  //TODO: Replace with output text boxes
+        if (rv.done) break
+      }
+      textReader.releaseLock()
+    }
+    const readBytesLoop = async () => {
+      while (true) {
+        let rv :ReadableStreamReadResult<Uint8Array>
+        try { rv = await bytesReader.read() }
+        /* If port.readable is still set afterwards, this is non-fatal, such as a buffer overflow, framing error, or parity error. */
+        catch (ex) { console.warn('Breaking readBytesLoop because', ex); break }
+        if (rv.value!=undefined)
+          console.debug('read bytes', ui8str(rv.value))  //TODO: Replace with output text boxes
+        if (rv.done) break
+      }
+      bytesReader.releaseLock()
+    }
+
+    const readUntilClosed = async () => {
+      while (port.readable && keepReading) {
+        const [readRaw, readTxt] = port.readable.tee()
+        bytesReader = readRaw.getReader()
+        const textDecoder = new TextDecoderStream(this.settings.getEncoding(), { fatal: false, ignoreBOM: false })
+        const txtClosed = readTxt.pipeTo(textDecoder.writable as WritableStream<Uint8Array>)
+        textReader = textDecoder.readable.getReader()
+        await Promise.all([ readTextLoop(), readBytesLoop(),
+          txtClosed.catch(ex => { console.debug('Ignoring', ex) /* Ignore this error as per Chrome docs */ }) ])
+      }
+      if (keepReading) {  // user didn't disconnect, so the device must have
+        keepReading = false  // just to prevent recursive calling
+        closeHandler()
+      }
+      await port.close()
+    }
+    const readUntilClosedPromise = readUntilClosed()
+
+    const encoder = new TextEncoder()
+    const writeString = async (s :string) => {
+      if (port.writable==null) throw new Error('write on closed port')
+      console.debug('writing text', s)
+      const bytesWriter = port.writable.getWriter()
+      await bytesWriter.write(encoder.encode(s))
+      bytesWriter.releaseLock()
+      console.debug('wrote text', s)
+    }
+    const writeBytes = async (b :Uint8Array) => {
+      if (port.writable==null) throw new Error('write on closed port')
+      console.debug('writing bytes', ui8str(b))
+      const bytesWriter = port.writable.getWriter()
+      await bytesWriter.write(b)
+      bytesWriter.releaseLock()
+      console.debug('wrote bytes', ui8str(b))
+    }
+
+    const tid = setTimeout(async () => {  //TODO: Replace by input boxes
+      await writeString('STATUS')
+      await writeBytes(new Uint8Array([ 0x0D, 0x0A ]))
+    }, 10_000)
+
+    const closeHandler = async () => {
+      console.debug('closing')
+      this.btnDisconnect.removeEventListener('click', closeHandler)
+      clearTimeout(tid)
+      keepReading = false
+      // the following two may fail if the remote device disconnected
+      try { await textReader.cancel() } catch (ex) { console.debug('Ignoring', ex) }
+      try { await bytesReader.cancel() } catch (ex) { console.debug('Ignoring', ex) }
+      await readUntilClosedPromise
+      console.debug('closed')
+      this.updateState({ connected: false })
+    }
+    this.btnDisconnect.addEventListener('click', closeHandler)
+
   }
 
 }
