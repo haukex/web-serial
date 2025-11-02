@@ -23,3 +23,13 @@
 
 @include bs.color-mode(dark) {
 }
+
+.w-min-fit {
+  min-width: fit-content;
+}
+.max-vh-75 {
+  max-height: 75vh;
+}
+.max-vh-50 {
+  max-height: 50vh;
+}

@@ -202,6 +202,18 @@ export class SerialInterface {
   private readonly ulPorts :HTMLDivElement
   private readonly settings :SerialSettings
   private readonly btnDisconnect :HTMLButtonElement
+  private readonly divConnected :HTMLDivElement
+
+  private readonly divTextOut :HTMLDivElement
+  private readonly textOutput :HTMLElement
+  private readonly inpSendText :HTMLInputElement
+  private readonly selEol :HTMLSelectElement
+  private readonly btnSendText :HTMLButtonElement
+
+  private readonly divBinaryOut :HTMLDivElement
+  private readonly binaryOutput: HTMLElement
+  private readonly inpSendBytes :HTMLInputElement
+  private readonly btnSendBytes :HTMLButtonElement
 
   static new(ctx :GlobalContext) :Promise<SerialInterface> {
     return new SerialInterface(ctx).initialize()
@@ -233,15 +245,69 @@ export class SerialInterface {
     this.btnDisconnect = safeCastElement(HTMLButtonElement,
       <button type="button" class="btn btn-outline-danger flex-grow-1" disabled><i class="bi-x-octagon me-1"/> Disconnect</button>)
     this.settings.btnExpand.classList.add('flex-grow-1')
-    this.el = 'serial' in navigator
-      ? <div class="container border rounded p-3">
-        <div class="d-flex flex-column gap-2">
-          <div class="d-flex flex-wrap gap-2">
-            {btnShowPorts} {this.settings.btnExpand} {this.btnDisconnect}
+
+    this.textOutput = safeCastElement(HTMLPreElement, <pre></pre>)
+    this.divTextOut = safeCastElement(HTMLDivElement, <div class="border rounded p-2 max-vh-50 overflow-auto">{this.textOutput}</div>)
+    this.btnSendText = safeCastElement(HTMLButtonElement,
+      <button type="button" class="btn btn-outline-primary" id={ctx.genId()} disabled><i class="bi-send me-1"/> Send UTF-8</button>)
+    this.inpSendText = safeCastElement(HTMLInputElement,
+      <input class="form-control" type="text" aria-describedby={this.btnSendText.id}/>)
+    this.selEol = safeCastElement(HTMLSelectElement,
+      <select class="form-select flex-grow-0 flex-shrink-0" style="min-width: 6rem">
+        <option value="CRLF" selected>CRLF</option>
+        <option value="LF">LF</option>
+        <option value="CR">CR</option>
+        <option value="none">None</option>
+      </select>)
+
+    this.binaryOutput = safeCastElement(HTMLPreElement, <pre></pre>)
+    this.divBinaryOut = safeCastElement(HTMLDivElement, <div class="border rounded p-2 max-vh-50 overflow-auto">{this.binaryOutput}</div>)
+    this.btnSendBytes = safeCastElement(HTMLButtonElement,
+      <button type="button" class="btn btn-outline-primary" id={ctx.genId()} disabled><i class="bi-send me-1"/> Send Bytes</button>)
+    this.inpSendBytes = safeCastElement(HTMLInputElement,
+      <input class="form-control" type="text" pattern="^(0x)?([0-9a-fA-F]{2} ?)+$" aria-describedby={this.btnSendBytes.id}/>)
+
+    const idNavTextTab = ctx.genId()
+    const idNavText = ctx.genId()
+    const idNavBinaryTag = ctx.genId()
+    const idNavBinary = ctx.genId()
+    this.divConnected = safeCastElement(HTMLDivElement,
+      <div class="container border rounded p-3 collapse">
+        <nav>
+          <div class="nav nav-tabs mb-2" role="tablist">
+            <button type="button" role="tab" class="nav-link active" id={idNavTextTab}
+              data-bs-toggle="tab" data-bs-target={'#'+idNavText} aria-controls={idNavText} aria-selected="true">Text</button>
+            <button type="button" role="tab" class="nav-link" id={idNavBinaryTag}
+              data-bs-toggle="tab" data-bs-target={'#'+idNavBinary} aria-controls={idNavBinary} aria-selected="false">Binary</button>
           </div>
-          {this.ulPorts}
-          {this.settings.el}
+        </nav>
+        <div class="tab-content">
+          <div class="tab-pane fade show active" id={idNavText} role="tabpanel" aria-labelledby={idNavTextTab} tabindex="0">
+            <div class="d-flex flex-column gap-2">
+              {this.divTextOut}
+              <div class="input-group">{this.inpSendText}{this.selEol}{this.btnSendText}</div>
+            </div>
+          </div>
+          <div class="tab-pane fade" id={idNavBinary} role="tabpanel" aria-labelledby={idNavBinaryTag} tabindex="0">
+            <div class="d-flex flex-column gap-2">
+              {this.divBinaryOut}
+              <div class="input-group">{this.inpSendBytes}{this.btnSendBytes}</div>
+            </div>
+          </div>
         </div>
+      </div>)
+    this.el = 'serial' in navigator
+      ? <div class="d-flex flex-column gap-3">
+        <div class="container border rounded p-3">
+          <div class="d-flex flex-column gap-2">
+            <div class="d-flex flex-wrap gap-2">
+              {btnShowPorts} {this.settings.btnExpand} {this.btnDisconnect}
+            </div>
+            {this.ulPorts}
+            {this.settings.el}
+          </div>
+        </div>
+        {this.divConnected}
       </div>
       : <div class="alert alert-danger" role="alert">
         <i class="bi-exclamation-octagon me-2" />
@@ -328,12 +394,19 @@ export class SerialInterface {
     this.btnDisconnect.disabled = !connected
     this.btnDisconnect.classList.toggle('btn-danger', connected)
     this.btnDisconnect.classList.toggle('btn-outline-danger', !connected)
+    this.btnSendText.disabled = !connected
+    this.btnSendBytes.disabled = !connected
     this.connected = connected
     const collPorts = Collapse.getOrCreateInstance(this.ulPorts, { toggle: false })
+    const collConn = Collapse.getOrCreateInstance(this.divConnected, { toggle: false })
     if (state && state.connected) {
       this.settings.hide()
       collPorts.hide()
-    } else if (state && !state.connected) { collPorts.show() }
+      collConn.show()
+    } else if (state && !state.connected) {
+      collPorts.show()
+      collConn.hide()
+    }
   }
 
   private async connect(port :SerialPort) {
@@ -351,6 +424,17 @@ export class SerialInterface {
 
     const ui8str = (b :Uint8Array) => Array.prototype.map.call(b, (x :number) => x.toString(16).padStart(2,'0')).join('')
 
+    const rxText = (text :string) => {
+      //TODO: Switching tabs does weird stuff with the contents
+      this.textOutput.innerText += text
+      //TODO: scroll to bottom (unless user has scrolled elsewhere)
+      //TODO: Trim output size
+    }
+    const rxBytes = (bytes :Uint8Array) => {
+      //TODO: Same as text output above
+      this.binaryOutput.innerText += ui8str(bytes)+'\n'
+    }
+
     const readTextLoop = async () => {
       try {
         while (true) {
@@ -358,8 +442,7 @@ export class SerialInterface {
           try { rv = await textReader.read() }
           /* Since this is a teed reader, assume that we should be getting the same errors as the other one, so handle them there. */
           catch (ex) { console.debug('Breaking readTextLoop because', ex); break }
-          if (rv.value!=undefined)
-            console.debug('read text', rv.value)  //TODO: Replace with output text boxes
+          if (rv.value!=undefined) rxText(rv.value)
           if (rv.done) break
         }
       } finally { textReader.releaseLock() }
@@ -371,8 +454,7 @@ export class SerialInterface {
           try { rv = await bytesReader.read() }
           /* If port.readable is still set afterwards, this is non-fatal, such as a buffer overflow, framing error, or parity error. */
           catch (ex) { console.warn('Breaking readBytesLoop because', ex); break }
-          if (rv.value!=undefined)
-            console.debug('read bytes', ui8str(rv.value))  //TODO: Replace with output text boxes
+          if (rv.value!=undefined) rxBytes(rv.value)
           if (rv.done) break
         }
       } finally { bytesReader.releaseLock() }
@@ -399,7 +481,6 @@ export class SerialInterface {
     const encoder = new TextEncoder()
     const writeString = async (s :string) => {
       if (port.writable==null) throw new Error('write on closed port')
-      console.debug('writing text', s)
       const bytesWriter = port.writable.getWriter()
       await bytesWriter.write(encoder.encode(s))
       bytesWriter.releaseLock()
@@ -407,28 +488,49 @@ export class SerialInterface {
     }
     const writeBytes = async (b :Uint8Array) => {
       if (port.writable==null) throw new Error('write on closed port')
-      console.debug('writing bytes', ui8str(b))
       const bytesWriter = port.writable.getWriter()
       await bytesWriter.write(b)
       bytesWriter.releaseLock()
       console.debug('wrote bytes', ui8str(b))
     }
 
-    const tid = setTimeout(async () => {  //TODO: Replace by input boxes
-      await writeString('STATUS')
-      await writeBytes(new Uint8Array([ 0x0D, 0x0A ]))
-    }, 10_000)
+    //TODO: support enter key in text boxes
+    const sendTextHandler = async () => {
+      let eol = '\r\n'
+      switch (this.selEol.value) {
+        case 'LF': eol = '\n'; break
+        case 'CR': eol = '\r'; break
+        case 'none': eol = ''; break
+      }
+      await writeString(this.inpSendText.value+eol)
+      this.inpSendText.value = ''
+    }
+    this.btnSendText.addEventListener('click', sendTextHandler)
+
+    const sendBytesHandler = async () => {
+      let txt = this.inpSendBytes.value.trim()
+      if (txt.startsWith('0x')) txt = txt.substring(2)
+      await writeBytes(new Uint8Array(
+        txt.toLowerCase().replace(/[^0-9a-f]/g, '').match(/.{1,2}/g)?.map(h => parseInt(h, 16)) ?? [] ))
+      this.inpSendBytes.value = ''
+    }
+    this.btnSendBytes.addEventListener('click', sendBytesHandler)
 
     const closeHandler = async () => {
       console.debug('closing')
-      this.btnDisconnect.removeEventListener('click', closeHandler)
-      clearTimeout(tid)
       keepReading = false
+      this.btnSendText.removeEventListener('click', sendTextHandler)
+      this.btnSendBytes.removeEventListener('click', sendBytesHandler)
+      this.btnDisconnect.removeEventListener('click', closeHandler)
+      this.inpSendText.value = ''
+      this.inpSendBytes.value = ''
+      this.textOutput.innerText = ''
+      this.binaryOutput.innerText = ''
       // the following two may fail if the remote device disconnected
       try { await textReader.cancel() } catch (ex) { console.debug('Ignoring', ex) }
       try { await bytesReader.cancel() } catch (ex) { console.debug('Ignoring', ex) }
       await readUntilClosedPromise
-      console.debug('closed')
+      console.debug('closed', portString(port))
       this.updateState({ connected: false })
     }
     this.btnDisconnect.addEventListener('click', closeHandler)
