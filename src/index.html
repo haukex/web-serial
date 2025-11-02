@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>🔌 Web Serial API</title>
+  <title>🔌 Web Serial</title>
   <style> /* parcel will handle these */
     @import "styles.scss";  /* imports bootstrap */
     @import "~/node_modules/bootstrap-icons/font/bootstrap-icons.css";
@@ -15,30 +15,21 @@
 </head>
 <body class="min-vh-100 d-flex flex-column">
   <header class="sticky-top">
-    <nav class="navbar navbar-expand-md bg-body-tertiary">
+    <nav class="navbar navbar-expand-md bg-body-secondary">
       <div class="container-fluid">
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbarToggler"
-          aria-controls="mainNavbarToggler" aria-expanded="false" aria-label="Toggle navigation">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="navbar-brand"><i class="bi-plug-fill"></i> Web Serial API <span class="badge rounded-pill text-bg-danger">Alpha</span></div>
-        <div class="collapse navbar-collapse" id="mainNavbarToggler">
-          <ul class="navbar-nav me-auto mb-2 mb-md-0">
-            <li class="nav-item">
-              <a class="nav-link disabled" aria-disabled="true">Home</a>
-            </li>
-          </ul>
-        </div>
+        <div class="navbar-brand"><i class="bi-plug-fill"></i> Web Serial
+          <span class="badge rounded-pill text-bg-danger">Alpha</span></div>
       </div>
     </nav>
   </header>
   <main class="flex-grow-1 p-3"><!-- Populated by code --></main>
-  <footer class="sticky-bottom bg-body-secondary px-4 py-2 small">
+  <footer class="bg-body-secondary px-3 py-2 small">
     Copyright &copy; 2025 <a href="https://www.zero-g.net/" target="_blank">Hauke D</a> (haukex@zero-g.net) at the
     <a href="https://www.igb-berlin.de" target="_blank">IGB Berlin</a>.
     This program comes with <span style="font-weight: bold; text-transform: lowercase;">ABSOLUTELY NO WARRANTY</span>.
     This is free software, and you are welcome to redistribute it under certain conditions.
-    Please see the <a href="https://www.gnu.org/licenses/gpl-3.0-standalone.html" target="_blank">GNU General Public License</a> for details.
+    Please see the source code and license at
+    <a href="https://github.com/haukex/web-serial" target="_blank">https://github.com/haukex/web-serial</a> for details.
   </footer>
 </body>
 </html>
