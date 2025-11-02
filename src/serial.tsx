@@ -21,10 +21,10 @@ import { GlobalContext } from './main'
 import { userInput } from './dialogs'
 import { Collapse } from 'bootstrap'
 
+// spell-checker: ignore BTUUID RFCOMM
+
 // https://developer.chrome.com/docs/capabilities/serial
 // https://stackblitz.com/edit/typescript-web-serial?file=index.ts
-
-const BT_BASE_UUID = '00000000-0000-1000-8000-00805F9B34FB'
 
 export function portString(p :SerialPort) :string {
   const inf = p.getInfo()
@@ -146,6 +146,42 @@ class SerialSettings {
   }
 }
 
+class BTUUID {
+  /* `allowedBluetoothServiceClassIds` containing a string that is not a UUID apparently causes requestPort()
+   * to completely blow up, so be restrictive. Apparently even the hex digits being uppercase causes a hard crash.
+   * Appears to be this issue: https://issues.chromium.org/issues/328304137 */
+  private static readonly REGEX = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/
+  static readonly BASE = '00000000-0000-1000-8000-00805F9B34FB'
+  static readonly PAT = '^([0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}|(0x)?[0-9a-fA-F]{1,8})$'
+  readonly ctx
+  private _uuids :string[] = []
+  static new(ctx :GlobalContext) :Promise<BTUUID> {
+    return new BTUUID(ctx).initialize()
+  }
+  private constructor(ctx :GlobalContext) { this.ctx = ctx }
+  private async initialize() :Promise<this> {
+    this._uuids = Array.from( new Set(
+      ( await this.ctx.storage.settings.get('bluetoothUuids') ).filter( uuid => uuid.match(BTUUID.REGEX) ) ) )
+    this._uuids.sort()
+    return this
+  }
+  get uuids() :string[] { return this._uuids }
+  async add(uuid :string) :Promise<boolean> {
+    uuid = uuid.trim().toLowerCase()
+    /* Handle short form ID (we'll be flexible and allow up to 8 hex digits) - for example, 0x0003 is RFCOMM:
+     * https://bitbucket.org/bluetooth-SIG/public/src/797ee709/assigned_numbers/uuids/protocol_identifiers.yaml#lines-39
+     * Which, according to the comments here: https://stackoverflow.com/a/21760106 means 00030000-... */
+    if (uuid.match(/^(?:0x)?[0-9a-f]{1,8}$/))  //
+      uuid = ( uuid.startsWith('0x') ? uuid.substring(2) : uuid ).padEnd(8,'0') + BTUUID.BASE.substring(8).toLowerCase()
+    if ( !uuid.match(BTUUID.REGEX) || this._uuids.includes(uuid) ) return false
+    this._uuids.push(uuid)
+    this._uuids.sort()
+    await this.ctx.storage.settings.set('bluetoothUuids', this._uuids)
+    console.log('UUIDs', this._uuids)
+    return true
+  }
+}
+
 export class SerialInterface {
   readonly ctx :GlobalContext
   readonly el :HTMLElement
@@ -156,8 +192,11 @@ export class SerialInterface {
   private readonly settings :SerialSettings
   private readonly btnDisconnect :HTMLButtonElement
 
-  /** **Must** call {@link initialize} on new objects! */
-  constructor(ctx :GlobalContext) {
+  static new(ctx :GlobalContext) :Promise<SerialInterface> {
+    return new SerialInterface(ctx).initialize()
+  }
+
+  private constructor(ctx :GlobalContext) {
     this.ctx = ctx
     this.btnRequest = safeCastElement(HTMLButtonElement,
       <button type="button" class="list-group-item list-group-item-action list-group-item-primary">
@@ -193,9 +232,12 @@ export class SerialInterface {
           {this.settings.el}
         </div>
       </div>
-      : <div class="alert alert-danger" role="alert">Web Serial API is not supported in this browser.
-        (<a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API#browser_compatibility"
-        target="_blank">Browser compatibility table</a>)</div>
+      : <div class="alert alert-danger" role="alert">
+        <i class="bi-exclamation-octagon me-2" />
+        <strong class="me-1">Web Serial API is not supported in this browser.</strong><hr/>
+        The <em>Web Serial API</em> is an experimental technology that does not appear to be supported by your browser.
+        Please see the <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API#browser_compatibility"
+          target="_blank">browser compatibility table</a>.</div>
   }
 
   private securityError(ex :DOMException) {
@@ -253,7 +295,7 @@ export class SerialInterface {
     } else if (state && !state.connected) { collPorts.show() }
   }
 
-  async initialize() :Promise<this> {
+  private async initialize() :Promise<this> {
     if (!('serial' in navigator)) return this
 
     navigator.serial.addEventListener('connect', ({ target: port }) => {
@@ -267,10 +309,10 @@ export class SerialInterface {
     })
     await this.redrawPorts()
 
-    const bluetoothUuids :Set<string> = new Set()  //TODO Later: Save in storage
+    const btuuid = await BTUUID.new(this.ctx)
     this.btnRequest.addEventListener('click', async () => {
       let port :SerialPort|null = null
-      try { port = await navigator.serial.requestPort({ allowedBluetoothServiceClassIds: Array.from(bluetoothUuids) }) }
+      try { port = await navigator.serial.requestPort({ allowedBluetoothServiceClassIds: btuuid.uuids }) }
       catch (ex) {
         if (ex instanceof DOMException && ex.name === 'NotFoundError') {/* user canceled, ignore */}
         else if (ex instanceof DOMException && ex.name === 'SecurityError') { this.securityError(ex) }
@@ -279,29 +321,11 @@ export class SerialInterface {
       await this.redrawPorts()
       if (port!=null) await this.connect(port)
     })
-    this.btnAddBlue.addEventListener('click', async () => {
-      /* The user entering a string that is not a UUID apparently causes requestPort() to completely blow up, so be restrictive.
-       * Apparently even the hex digits being uppercase causes a hard crash...
-       * Appears to be this issue: https://issues.chromium.org/issues/328304137 */
-      const haveUuids = Array.from(bluetoothUuids)
-      haveUuids.sort()
-      const uuid = (await userInput(this.ctx,
-        { title: <><i class="bi-bluetooth me-1"/> Add custom Bluetooth Service Class ID</>,
-          message: haveUuids.length ? <div>Already defined:<ul>{
-            haveUuids.map(uuid => <li>{uuid.toUpperCase()}</li>)
-          }</ul></div> : '',
-          pattern: '^([0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}|(0x)?[0-9a-fA-F]{1,8})$',
-          placeholder: BT_BASE_UUID.toUpperCase() })).trim().toLowerCase()
-      if (uuid.match(/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/)) {
-        bluetoothUuids.add(uuid)
-        console.log('UUIDs', bluetoothUuids)
-      }
-      else if (uuid.match(/^(?:0x)?[0-9a-f]{1,8}$/)) {  // short form ID
-        bluetoothUuids.add( (uuid.startsWith('0x') ? uuid.substring(2) : uuid).padEnd(8,'0')
-          + BT_BASE_UUID.substring(8).toLowerCase() )
-        console.log('UUIDs', bluetoothUuids)
-      }
-    })
+    this.btnAddBlue.addEventListener('click', async () =>
+      btuuid.add( (await userInput(this.ctx, {
+        title: <><i class="bi-bluetooth me-1"/> Add custom Bluetooth Service Class ID</>,
+        message: btuuid.uuids.length ? <div>Already defined:<ul>{btuuid.uuids.map(uuid => <li>{uuid.toUpperCase()}</li>)}</ul></div> : '',
+        pattern: BTUUID.PAT, placeholder: BTUUID.BASE.toUpperCase() })) ) )
 
     return this
   }

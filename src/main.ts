@@ -17,6 +17,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 import { SerialInterface } from './serial'
+import { noStorageAlert } from './dialogs'
+import { IdbStorage } from './idb-store'
 import { assert } from './utils'
 
 window.addEventListener('error', event =>
@@ -36,11 +38,13 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', set
 window.addEventListener('DOMContentLoaded', setTheme)
 
 export class GlobalContext {
+  readonly storage
   readonly header
   readonly main
   readonly footer
   private idCounter :number = 0
-  constructor() {
+  constructor(storage :IdbStorage) {
+    this.storage = storage
     const htmlHeader = document.querySelector('header')
     const htmlMain = document.querySelector('main')
     const htmlFooter = document.querySelector('footer')
@@ -53,7 +57,15 @@ export class GlobalContext {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
-  const ctx = new GlobalContext()
-  const ser = await new SerialInterface(ctx).initialize()
+  let storage :IdbStorage
+  try { storage = await IdbStorage.open() }
+  catch (ex) {
+    console.error(ex)
+    document.querySelector('main')?.appendChild(noStorageAlert())
+    return
+  }
+
+  const ctx = new GlobalContext(storage)
+  const ser = await SerialInterface.new(ctx)
   ctx.main.appendChild(ser.el)
 })

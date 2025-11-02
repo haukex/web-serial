@@ -20,6 +20,13 @@ import { jsx, safeCastElement } from './jsx-dom'
 import { GlobalContext } from './main'
 import { Modal } from 'bootstrap'
 
+export function noStorageAlert() :HTMLElement {
+  return <div class="alert alert-danger" role="alert">
+    <i class="bi-exclamation-octagon me-2" />
+    <strong class="me-1">No IndexedDB storage available.</strong><hr/>
+    Perhaps you are in a private window, or you have browser plugins blocking it?</div>
+}
+
 export function userInput(ctx :GlobalContext, options :{ title :string|HTMLElement, message ?:string|HTMLElement,
   pattern ?:string, placeholder ?:string }) :Promise<string> {
   const inpText = safeCastElement(HTMLInputElement, <input type="text" class="form-control" required></input>)
