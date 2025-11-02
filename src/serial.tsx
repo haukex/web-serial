@@ -231,8 +231,6 @@ export class SerialInterface {
   private async connect(port :SerialPort) {
     const opt = this.settings.getOptions()
     console.debug('connect', portString(port), opt)
-    this.settings.hide()
-    Collapse.getOrCreateInstance(this.ulPorts, { toggle: false }).hide()
     this.updateState({ connected: true })
     setTimeout(() => this.updateState({ connected: false }), 5_000)  //TODO
     //alert(`Connect to ${portString(port)} not yet implemented`)
@@ -246,6 +244,11 @@ export class SerialInterface {
     this.buttons.forEach(btn => btn.disabled = connected)
     this.btnDisconnect.disabled = !connected
     this.connected = connected
+    const collPorts = Collapse.getOrCreateInstance(this.ulPorts, { toggle: false })
+    if (state && state.connected) {
+      this.settings.hide()
+      collPorts.hide()
+    } else if (state && !state.connected) { collPorts.show() }
   }
 
   async initialize() :Promise<this> {
