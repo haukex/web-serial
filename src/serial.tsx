@@ -38,7 +38,7 @@ export function portString(p :SerialPort) :string {
 class SerialSettings {
   readonly el :HTMLElement
   readonly btnExpand :HTMLButtonElement
-  private readonly selBaudRate
+  private readonly inpBaudRate
   private readonly dataBits7
   private readonly dataBits8
   private readonly stopBits1
@@ -46,18 +46,20 @@ class SerialSettings {
   private readonly selParity
   private readonly selFlowCtrl
   constructor(ctx :GlobalContext) {
-    this.selBaudRate = safeCastElement(HTMLSelectElement,
-      <select class="form-select" id={ctx.genId()}>
-        <option value="921600">921600</option>
-        <option value="460800">460800</option>
-        <option value="230400">230400</option>
-        <option value="115200" selected>115200</option>
-        <option value="57600">57600</option>
-        <option value="38400">38400</option>
-        <option value="19200">19200</option>
-        <option value="9600">9600</option>
-        <option value="4800">4800</option>
-      </select>)
+    const datalistBaud = safeCastElement(HTMLDataListElement,
+      <datalist id={ctx.genId()}>
+        <option value="921600" />
+        <option value="460800" />
+        <option value="230400" />
+        <option value="115200" />
+        <option value="57600" />
+        <option value="38400" />
+        <option value="19200" />
+        <option value="9600" />
+        <option value="4800" />
+      </datalist>)
+    this.inpBaudRate = safeCastElement(HTMLInputElement,
+      <input class="form-control" list={datalistBaud.id} id={ctx.genId()} type="number" min="1" value="115200"/>)
     this.dataBits7 = safeCastElement(HTMLInputElement,
       <input class="form-check-input" type="radio" value="7" name="dataBits" id={ctx.genId()} />)
     this.dataBits8 = safeCastElement(HTMLInputElement,
@@ -80,7 +82,8 @@ class SerialSettings {
     this.el =
       <div class="collapse" id={ctx.genId()}>
         <div class="card card-body gap-2">
-          <div class="input-group"><label class="input-group-text" for={this.selBaudRate.id}>Baud Rate</label>{this.selBaudRate}</div>
+          <div class="input-group">
+            <label class="input-group-text" for={this.inpBaudRate.id}>Baud Rate</label>{this.inpBaudRate}{datalistBaud}</div>
           <div class="input-group">
             <span class="input-group-text">Data Bits</span>
             <div class="input-group-text flex-grow-1 flex-shrink-1"><div class="form-check">
@@ -117,9 +120,9 @@ class SerialSettings {
     })
   }
   getOptions() :SerialOptions {
-    const baud = Number.parseInt(this.selBaudRate.value)
     return {
-      baudRate: Number.isFinite(baud) ? baud : 115200,
+      baudRate: Number.isFinite(this.inpBaudRate.valueAsNumber) && this.inpBaudRate.valueAsNumber>0
+        ? this.inpBaudRate.valueAsNumber : 115200,
       dataBits: this.dataBits7.checked ? 7 : 8,
       stopBits: this.stopBits2.checked ? 2 : 1,
       parity: this.selParity.value==='even' ? 'even' : this.selParity.value==='odd' ? 'odd' : 'none',
@@ -128,7 +131,7 @@ class SerialSettings {
   }
   setDisabled(disabled :boolean = true) {
     //this.btnExpand.disabled = disabled
-    this.selBaudRate.disabled = disabled
+    this.inpBaudRate.disabled = disabled
     this.dataBits7.disabled = disabled
     this.dataBits8.disabled = disabled
     this.stopBits1.disabled = disabled
