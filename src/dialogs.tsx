@@ -17,20 +17,22 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 import { jsx, safeCastElement } from './jsx-dom'
+import { GlobalContext } from './main'
 import { Modal } from 'bootstrap'
 
-export function userInput(title :string, options :{ pattern ?:string, placeholder ?:string }={}) :Promise<string> {
+export function userInput(ctx :GlobalContext, title :string, options :{ pattern ?:string, placeholder ?:string }={}) :Promise<string> {
   const inpText = safeCastElement(HTMLInputElement, <input type="text" class="form-control" required></input>)
   if (options.pattern) inpText.pattern = options.pattern
   if (options.placeholder) inpText.placeholder = options.placeholder
   const form = safeCastElement(HTMLFormElement, <form class="needs-validation">{inpText}</form>)
   const btnOk = safeCastElement(HTMLButtonElement, <button type="button" class="btn btn-primary">OK</button>)
-  const dialog = <div class="modal fade" id="staticBackdrop" data-bs-backdrop="static" data-bs-keyboard="false"
-    tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+  const backdropId = ctx.genId()
+  const dialog = <div class="modal fade" data-bs-backdrop="static" data-bs-keyboard="false"
+    tabindex="-1" aria-labelledby={backdropId} aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header">
-          <h1 class="modal-title fs-5" id="staticBackdropLabel"><i class="bi-input-cursor-text me-1"/> {title}</h1>
+          <h1 class="modal-title fs-5" id={backdropId}><i class="bi-input-cursor-text me-1"/> {title}</h1>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">

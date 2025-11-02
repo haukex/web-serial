@@ -39,6 +39,7 @@ export class GlobalContext {
   readonly header
   readonly main
   readonly footer
+  private idCounter :number = 0
   constructor() {
     const htmlHeader = document.querySelector('header')
     const htmlMain = document.querySelector('main')
@@ -48,6 +49,7 @@ export class GlobalContext {
     this.main = htmlMain
     this.footer = htmlFooter
   }
+  genId() :string { return `_genId_${this.idCounter++}_` }
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
