@@ -240,14 +240,6 @@ export class SerialInterface {
           target="_blank">browser compatibility table</a>.</div>
   }
 
-  private securityError(ex :DOMException) {
-    const divAlert = <div class="alert alert-warning alert-dismissible fade show" role="alert">
-      <strong>Serial Port Access Denied ({ex.message})</strong>
-      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-    this.el.appendChild(divAlert)
-  }
-
   private async redrawPorts() :Promise<void> {
     let ports :SerialPort[]
     try { ports = await navigator.serial.getPorts() }
@@ -270,31 +262,6 @@ export class SerialInterface {
     })
     this.ulPorts.replaceChildren(...this.buttons, this.btnRequest, this.btnAddBlue)
     this.updateState()
-  }
-
-  private async connect(port :SerialPort) {
-    const opt = this.settings.getOptions()
-    console.debug('connect', portString(port), opt)
-    this.updateState({ connected: true })
-    setTimeout(() => this.updateState({ connected: false }), 5_000)  //TODO
-    //alert(`Connect to ${portString(port)} not yet implemented`)
-  }
-
-  private connected :boolean = false
-  private updateState(state ?:{ connected :boolean }) {
-    const connected = state ? state.connected : this.connected
-    this.settings.setDisabled(connected)
-    this.btnRequest.disabled = connected
-    this.buttons.forEach(btn => btn.disabled = connected)
-    this.btnDisconnect.disabled = !connected
-    this.btnDisconnect.classList.toggle('btn-danger', connected)
-    this.btnDisconnect.classList.toggle('btn-outline-danger', !connected)
-    this.connected = connected
-    const collPorts = Collapse.getOrCreateInstance(this.ulPorts, { toggle: false })
-    if (state && state.connected) {
-      this.settings.hide()
-      collPorts.hide()
-    } else if (state && !state.connected) { collPorts.show() }
   }
 
   private async initialize() :Promise<this> {
@@ -330,6 +297,39 @@ export class SerialInterface {
         pattern: BTUUID.PAT, placeholder: BTUUID.BASE.toUpperCase() })) ) )
 
     return this
+  }
+
+  private securityError(ex :DOMException) {
+    const divAlert = <div class="alert alert-warning alert-dismissible fade show" role="alert">
+      <strong>Serial Port Access Denied ({ex.message})</strong>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    this.el.appendChild(divAlert)
+  }
+
+  private connected :boolean = false
+  private updateState(state ?:{ connected :boolean }) {
+    const connected = state ? state.connected : this.connected
+    this.settings.setDisabled(connected)
+    this.btnRequest.disabled = connected
+    this.buttons.forEach(btn => btn.disabled = connected)
+    this.btnDisconnect.disabled = !connected
+    this.btnDisconnect.classList.toggle('btn-danger', connected)
+    this.btnDisconnect.classList.toggle('btn-outline-danger', !connected)
+    this.connected = connected
+    const collPorts = Collapse.getOrCreateInstance(this.ulPorts, { toggle: false })
+    if (state && state.connected) {
+      this.settings.hide()
+      collPorts.hide()
+    } else if (state && !state.connected) { collPorts.show() }
+  }
+
+  private async connect(port :SerialPort) {
+    const opt = this.settings.getOptions()
+    console.debug('connect', portString(port), opt)
+    this.updateState({ connected: true })
+    setTimeout(() => this.updateState({ connected: false }), 5_000)  //TODO
+    //alert(`Connect to ${portString(port)} not yet implemented`)
   }
 
 }
