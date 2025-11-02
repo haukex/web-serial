@@ -111,7 +111,7 @@ class SerialSettings {
     this.btnExpand = safeCastElement(HTMLButtonElement,
       <button class="btn btn-outline-primary" type="button"
         data-bs-toggle="collapse" data-bs-target={'#'+this.el.id} aria-expanded="false" aria-controls={this.el.id}>
-        <i class="bi-sliders me-1"/> Serial Options</button>)
+        <i class="bi-sliders me-1"/> Options</button>)
     this.el.addEventListener('show.bs.collapse', () => {
       this.btnExpand.classList.add('btn-primary')
       this.btnExpand.classList.remove('btn-outline-primary')
@@ -206,27 +206,27 @@ export class SerialInterface {
         <i class="bi-bluetooth me-1"/> Add custom Bluetooth UUID</button>)
     this.ulPorts = safeCastElement(HTMLDivElement,
       <div class="list-group collapse show" aria-expanded="true" id={ctx.genId()}>{this.btnRequest}{this.btnAddBlue}</div>)
-    const btnConnect = safeCastElement(HTMLButtonElement,
+    const btnShowPorts = safeCastElement(HTMLButtonElement,
       <button class="btn btn-success flex-grow-1" type="button"
         data-bs-toggle="collapse" data-bs-target={'#'+this.ulPorts.id} aria-expanded="false" aria-controls={this.ulPorts.id}>
-        <i class="bi-plug-fill me-1"/>Connect</button>)
+        <i class="bi-plug-fill me-1"/>Ports</button>)
     this.ulPorts.addEventListener('show.bs.collapse', () => {
-      btnConnect.classList.add('btn-success')
-      btnConnect.classList.remove('btn-outline-success')
+      btnShowPorts.classList.add('btn-success')
+      btnShowPorts.classList.remove('btn-outline-success')
     })
     this.ulPorts.addEventListener('hidden.bs.collapse', () => {
-      btnConnect.classList.add('btn-outline-success')
-      btnConnect.classList.remove('btn-success')
+      btnShowPorts.classList.add('btn-outline-success')
+      btnShowPorts.classList.remove('btn-success')
     })
     this.settings = new SerialSettings(ctx)
     this.btnDisconnect = safeCastElement(HTMLButtonElement,
-      <button type="button" class="btn btn-danger flex-grow-1" disabled><i class="bi-x-octagon me-1"/> Disconnect</button>)
+      <button type="button" class="btn btn-outline-danger flex-grow-1" disabled><i class="bi-x-octagon me-1"/> Disconnect</button>)
     this.settings.btnExpand.classList.add('flex-grow-1')
     this.el = 'serial' in navigator
       ? <div class="container border rounded p-3">
         <div class="d-flex flex-column gap-2">
           <div class="d-flex flex-wrap gap-2">
-            {btnConnect} {this.settings.btnExpand} {this.btnDisconnect}
+            {btnShowPorts} {this.settings.btnExpand} {this.btnDisconnect}
           </div>
           {this.ulPorts}
           {this.settings.el}
@@ -287,6 +287,8 @@ export class SerialInterface {
     this.btnRequest.disabled = connected
     this.buttons.forEach(btn => btn.disabled = connected)
     this.btnDisconnect.disabled = !connected
+    this.btnDisconnect.classList.toggle('btn-danger', connected)
+    this.btnDisconnect.classList.toggle('btn-outline-danger', !connected)
     this.connected = connected
     const collPorts = Collapse.getOrCreateInstance(this.ulPorts, { toggle: false })
     if (state && state.connected) {
