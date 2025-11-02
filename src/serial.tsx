@@ -383,11 +383,11 @@ export class SerialInterface {
         const txtClosed = readTxt.pipeTo(textDecoder.writable as WritableStream<Uint8Array>)
         textReader = textDecoder.readable.getReader()
         await Promise.all([ readTextLoop(), readBytesLoop(),
-          txtClosed.catch(ex => { console.debug('Ignoring', ex) /* Ignore this error as per Chrome docs */ }) ])
+          txtClosed.catch((ex :unknown) => { console.debug('Ignoring', ex) /* Ignore this error as per Chrome docs */ }) ])
       }
       if (keepReading) {  // user didn't disconnect, so the device must have
-        keepReading = false  // just to prevent recursive calling
-        closeHandler()
+        keepReading = false  // ensure there aren't any recursive calls (shouldn't be; just in case)
+        setTimeout(closeHandler)  // don't await to prevent deadlock
       }
       await port.close()
     }
