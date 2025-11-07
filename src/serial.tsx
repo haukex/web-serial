@@ -374,6 +374,16 @@ export class SerialInterface {
         message: btuuid.uuids.length ? <div>Already defined:<ul>{btuuid.uuids.map(uuid => <li>{uuid.toUpperCase()}</li>)}</ul></div> : '',
         pattern: BTUUID.PAT, placeholder: BTUUID.BASE.toUpperCase() })) ) )
 
+    let btPermission :PermissionStatus|null = null
+    try { btPermission = await navigator.permissions.query({ name: 'bluetooth' as PermissionName }) }
+    catch (_) {/* Browser probably doesn't know about "bluetooth" permission name */}
+    if ( btPermission!=null && btPermission.state!=='granted' )
+      this.el.appendChild(<div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <strong>No Bluetooth permissions (yet).</strong><hr/>
+        You need to grant this page/app/browser permissions to use Bluetooth in order to be able to access Bluetooth serial ports.
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>)
+
     return this
   }
 

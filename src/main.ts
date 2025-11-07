@@ -70,5 +70,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   const ser = await SerialInterface.new(ctx)
   ctx.main.appendChild(ser.el)
   const bt = await WebBluetooth.new(ctx)
+  bt.el.classList.add('mt-3')
   ctx.main.appendChild(bt.el)
 })
