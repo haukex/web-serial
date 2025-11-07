@@ -198,6 +198,7 @@ export class SerialInterface {
   readonly el :HTMLElement
   private readonly btnRequest :HTMLButtonElement
   private readonly btnAddBlue :HTMLButtonElement
+  private readonly btnBTScan :HTMLButtonElement
   private buttons :HTMLButtonElement[] = []
   private readonly ulPorts :HTMLDivElement
   private readonly settings :SerialSettings
@@ -226,9 +227,13 @@ export class SerialInterface {
         <i class="bi-plus-circle me-1"/> Request New Port</button>)
     this.btnAddBlue = safeCastElement(HTMLButtonElement,
       <button type="button" class="list-group-item list-group-item-action list-group-item-primary">
-        <i class="bi-bluetooth me-1"/> Add custom Bluetooth UUID</button>)
+        <i class="bi-bluetooth"/><i class="bi-node-plus me-1"/> Add custom Bluetooth UUID</button>)
+    this.btnBTScan = safeCastElement(HTMLButtonElement,
+      <button type="button" class="list-group-item list-group-item-action list-group-item-primary" disabled>
+        <i class="bi-bluetooth"/><i class="bi-patch-question me-1"/> Scan for Bluetooth devices</button>)
     this.ulPorts = safeCastElement(HTMLDivElement,
-      <div class="list-group collapse show" aria-expanded="true" id={ctx.genId()}>{this.btnRequest}{this.btnAddBlue}</div>)
+      <div class="list-group collapse show" aria-expanded="true" id={ctx.genId()}>
+        {this.btnRequest}{this.btnAddBlue}{this.btnBTScan}</div>)
     const btnShowPorts = safeCastElement(HTMLButtonElement,
       <button class="btn btn-success flex-grow-1" type="button"
         data-bs-toggle="collapse" data-bs-target={'#'+this.ulPorts.id} aria-expanded="false" aria-controls={this.ulPorts.id}>
@@ -332,12 +337,12 @@ export class SerialInterface {
         btnPort.classList.add('list-group-item-success')
       }
       else {
-        btnPort.disabled = true
+        btnPort.disabled = true  //TODO Later: Button immediately gets reenabled by updateStates()
         btnPort.classList.add('list-group-item-warning')
       }
       return btnPort
     })
-    this.ulPorts.replaceChildren(...this.buttons, this.btnRequest, this.btnAddBlue)
+    this.ulPorts.replaceChildren(...this.buttons, this.btnRequest, this.btnAddBlue, this.btnBTScan)
     this.updateState()
   }
 
@@ -374,15 +379,19 @@ export class SerialInterface {
         message: btuuid.uuids.length ? <div>Already defined:<ul>{btuuid.uuids.map(uuid => <li>{uuid.toUpperCase()}</li>)}</ul></div> : '',
         pattern: BTUUID.PAT, placeholder: BTUUID.BASE.toUpperCase() })) ) )
 
-    let btPermission :PermissionStatus|null = null
-    try { btPermission = await navigator.permissions.query({ name: 'bluetooth' as PermissionName }) }
-    catch (_) {/* Browser probably doesn't know about "bluetooth" permission name */}
-    if ( btPermission!=null && btPermission.state!=='granted' )
-      this.el.appendChild(<div class="alert alert-warning alert-dismissible fade show" role="alert">
-        <strong>No Bluetooth permissions (yet).</strong><hr/>
-        You need to grant this page/app/browser permissions to use Bluetooth in order to be able to access Bluetooth serial ports.
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      </div>)
+    if ('bluetooth' in navigator) {
+      this.btnBTScan.addEventListener('click', async () => {
+        let bt = null
+        try { bt = await navigator.bluetooth.requestDevice({ acceptAllDevices: true }) }
+        catch (ex) {
+          if (ex instanceof DOMException && ex.name === 'NotFoundError') {/* Assume cancelled, though the docs don't say that. */}
+          else if (ex instanceof DOMException && ex.name === 'SecurityError') { alert(`Bluetooth Access Denied: ${String(ex)}`) }
+          else console.error(ex)
+        }
+        if (bt!=null) alert(`You selected the device "${bt.name}" with ID "${bt.id}".`)
+      })
+      this.btnBTScan.disabled = false
+    }
 
     return this
   }
