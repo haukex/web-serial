@@ -19,6 +19,7 @@
 import { SerialInterface } from './serial'
 import { noStorageAlert } from './dialogs'
 import { IdbStorage } from './idb-store'
+import { WebBluetooth } from './bt'
 import { assert } from './utils'
 
 window.addEventListener('error', event =>
@@ -68,4 +69,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   const ctx = new GlobalContext(storage)
   const ser = await SerialInterface.new(ctx)
   ctx.main.appendChild(ser.el)
+  const bt = await WebBluetooth.new(ctx)
+  ctx.main.appendChild(bt.el)
 })

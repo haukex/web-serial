@@ -11,7 +11,8 @@
       "node",
       "@types/webpack-env",
       "./JSX",
-      "@types/w3c-web-serial"
+      "@types/w3c-web-serial",
+      "@types/web-bluetooth"
     ],
     "jsx": "react",
     "jsxFactory": "jsx",
