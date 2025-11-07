@@ -366,7 +366,7 @@ export class SerialInterface {
         else console.error(ex)
       }
       await this.redrawPorts()
-      if (port!=null) await this.connect(port)
+      if (port!=null && port.connected) await this.connect(port)
     })
     this.btnAddBlue.addEventListener('click', async () =>
       btuuid.add( (await userInput(this.ctx, {
@@ -424,7 +424,12 @@ export class SerialInterface {
     console.debug('open', portString(port), opt)
     this.updateState({ connected: true })
 
-    await port.open(opt)
+    try { await port.open(opt) }
+    catch (ex) {
+      alert(`Failed to open serial port: ${String(ex)}`)
+      this.updateState({ connected: false })
+      return
+    }
 
     // https://developer.chrome.com/docs/capabilities/serial
 
