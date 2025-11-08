@@ -332,14 +332,8 @@ export class SerialInterface {
     this.buttons = ports.map(port => {
       const btnPort = safeCastElement(HTMLButtonElement,
         <button type="button" class="list-group-item list-group-item-action"><i class="bi-plug me-1"/> {portString(port)}</button>)
-      if (port.connected) {
-        btnPort.addEventListener('click' , () => this.connect(port))
-        btnPort.classList.add('list-group-item-success')
-      }
-      else {
-        btnPort.disabled = true  //TODO Later: Button immediately gets reenabled by updateStates()
-        btnPort.classList.add('list-group-item-warning')
-      }
+      btnPort.addEventListener('click' , () => this.connect(port))
+      btnPort.classList.add(port.connected ? 'list-group-item-success' : 'list-group-item-warning')
       return btnPort
     })
     this.ulPorts.replaceChildren(...this.buttons, this.btnRequest, this.btnAddBlue, this.btnBTScan)
@@ -353,7 +347,6 @@ export class SerialInterface {
       // A port that the user has previously given permission for has appeared
       console.debug('connect event', port instanceof SerialPort ? portString(port) : port)
       return this.redrawPorts()
-      //TODO Later: Auto-(re-)connect to a port if it was just disconnected?
     })
     navigator.serial.addEventListener('disconnect', ({ target: port }) => {
       console.debug('disconnect event', port instanceof SerialPort ? portString(port) : port)
@@ -371,7 +364,7 @@ export class SerialInterface {
         else console.error(ex)
       }
       await this.redrawPorts()
-      if (port!=null && port.connected) await this.connect(port)
+      if (port!=null) await this.connect(port)
     })
     this.btnAddBlue.addEventListener('click', async () =>
       btuuid.add( (await userInput(this.ctx, {
