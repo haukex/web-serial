@@ -215,13 +215,10 @@ export class SerialInterface {
   private readonly divConnected :HTMLDivElement
 
   private readonly textOutput :TextOutput
-  private readonly inpSendText :HTMLInputElement
-  private readonly selEol :HTMLSelectElement
-  private readonly btnSendText :HTMLButtonElement
+  private readonly textInput :TextInput
 
   private readonly binaryOutput: BinaryOutput
-  private readonly inpSendBytes :HTMLInputElement
-  private readonly btnSendBytes :HTMLButtonElement
+  private readonly binaryInput :BinaryInput
 
   static new(ctx :GlobalContext) :Promise<SerialInterface> {
     return new SerialInterface(ctx).initialize()
@@ -259,23 +256,10 @@ export class SerialInterface {
     this.settings.btnExpand.classList.add('flex-grow-1')
 
     this.textOutput = new TextOutput()
-    this.btnSendText = safeCastElement(HTMLButtonElement,
-      <button type="button" class="btn btn-outline-primary" id={ctx.genId()} disabled><i class="bi-send me-1"/> Send UTF-8</button>)
-    this.inpSendText = safeCastElement(HTMLInputElement,
-      <input class="form-control font-monospace" type="text" aria-describedby={this.btnSendText.id}/>)
-    this.selEol = safeCastElement(HTMLSelectElement,
-      <select class="form-select flex-grow-0 flex-shrink-0" style="min-width: 6rem">
-        <option value="CRLF" selected>CRLF</option>
-        <option value="LF">LF</option>
-        <option value="CR">CR</option>
-        <option value="none">None</option>
-      </select>)
+    this.textInput = new TextInput(ctx)
 
     this.binaryOutput = new BinaryOutput()
-    this.btnSendBytes = safeCastElement(HTMLButtonElement,
-      <button type="button" class="btn btn-outline-primary" id={ctx.genId()} disabled><i class="bi-send me-1"/> Send Bytes</button>)
-    this.inpSendBytes = safeCastElement(HTMLInputElement,
-      <input class="form-control font-monospace" type="text" pattern="^(0x)?([0-9a-fA-F]{2} ?)+$" aria-describedby={this.btnSendBytes.id}/>)
+    this.binaryInput = new BinaryInput(ctx)
 
     const idNavTextTab = ctx.genId()
     const idNavText = ctx.genId()
@@ -293,16 +277,10 @@ export class SerialInterface {
         </nav>
         <div class="tab-content">
           <div class="tab-pane fade show active" id={idNavText} role="tabpanel" aria-labelledby={idNavTextTab} tabindex="0">
-            <div class="d-flex flex-column gap-2">
-              {this.textOutput.el}
-              <div class="input-group">{this.inpSendText}{this.selEol}{this.btnSendText}</div>
-            </div>
+            <div class="d-flex flex-column gap-2">{this.textOutput.el}{this.textInput.el}</div>
           </div>
           <div class="tab-pane fade" id={idNavBinary} role="tabpanel" aria-labelledby={idNavBinaryTag} tabindex="0">
-            <div class="d-flex flex-column gap-2">
-              {this.binaryOutput.el}
-              <div class="input-group">{this.inpSendBytes}{this.btnSendBytes}</div>
-            </div>
+            <div class="d-flex flex-column gap-2">{this.binaryOutput.el}{this.binaryInput.el}</div>
           </div>
         </div>
       </div>)
@@ -411,8 +389,8 @@ export class SerialInterface {
     this.btnDisconnect.disabled = !connected
     this.btnDisconnect.classList.toggle('btn-danger', connected)
     this.btnDisconnect.classList.toggle('btn-outline-danger', !connected)
-    this.btnSendText.disabled = !connected
-    this.btnSendBytes.disabled = !connected
+    this.textInput.setDisabled(!connected)
+    this.binaryInput.setDisabled(!connected)
     this.connected = connected
     const collPorts = Collapse.getOrCreateInstance(this.ulPorts, { toggle: false })
     const collConn = Collapse.getOrCreateInstance(this.divConnected, { toggle: false })
@@ -496,37 +474,15 @@ export class SerialInterface {
       if (typeof data === 'string') console.debug('wrote string', data)
       else console.debug('wrote bytes', ui8str(data))
     }
-
-    //TODO: support enter key and up arrow key in text boxes
-    const sendTextHandler = async () => {
-      let eol = '\r\n'
-      switch (this.selEol.value) {
-        case 'LF': eol = '\n'; break
-        case 'CR': eol = '\r'; break
-        case 'none': eol = ''; break
-      }
-      await writeToPort(this.inpSendText.value+eol)
-      this.inpSendText.value = ''
-    }
-    this.btnSendText.addEventListener('click', sendTextHandler)
-
-    const sendBytesHandler = async () => {
-      let txt = this.inpSendBytes.value.trim()
-      if (txt.startsWith('0x')) txt = txt.substring(2)
-      await writeToPort(new Uint8Array(
-        txt.toLowerCase().replace(/[^0-9a-f]/g, '').match(/.{1,2}/g)?.map(h => parseInt(h, 16)) ?? [] ))
-      this.inpSendBytes.value = ''
-    }
-    this.btnSendBytes.addEventListener('click', sendBytesHandler)
+    this.textInput.writer = writeToPort
+    this.binaryInput.writer = writeToPort
 
     const closeHandler = async () => {
       console.debug('closing')
       keepReading = false
-      this.btnSendText.removeEventListener('click', sendTextHandler)
-      this.btnSendBytes.removeEventListener('click', sendBytesHandler)
       this.btnDisconnect.removeEventListener('click', closeHandler)
-      this.inpSendText.value = ''
-      this.inpSendBytes.value = ''
+      this.textInput.writer = null
+      this.binaryInput.writer = null
       //TODO Later: Consider that users might still want to see the output upon disconnect
       this.textOutput.clear()
       this.binaryOutput.clear()
@@ -594,5 +550,78 @@ class BinaryOutput extends OutputBox<number, Uint8Array> {
     else if (this.count) this.curLine.innerText += ' '
     this.curLine.innerText += item.toString(16).padStart(2,'0')
     if (this.count>=15) this.newLine()
+  }
+}
+
+type InputWriter<T extends NonNullable<unknown>> = (data :T) => Promise<void>
+
+abstract class InputBox<T extends NonNullable<unknown>> {
+  readonly el :HTMLElement
+  protected readonly input :HTMLInputElement
+  protected readonly button :HTMLButtonElement
+  private _writer :InputWriter<T>|null = null
+  constructor(ctx :GlobalContext, label :string) {
+    this.button = safeCastElement(HTMLButtonElement,
+      <button type="button" class="btn btn-outline-primary" id={ctx.genId()} disabled><i class="bi-send me-1"/> {label}</button>)
+    this.input = safeCastElement(HTMLInputElement,
+      <input class="form-control font-monospace" type="text" aria-describedby={this.button.id}/>)
+    this.el = safeCastElement(HTMLDivElement, <div class="input-group">{this.input}{this.button}</div>)
+    this.button.addEventListener('click', async () => {
+      if (this._writer) {
+        await this._writer(this.getTxData())
+        this.clear()
+      }
+      else throw new Error('Attempt to send when no writer set; shouldn\'t happen!')
+    })
+    //TODO: support enter key and up arrow key in text boxes
+  }
+  set writer(w :InputWriter<T>|null) {
+    this._writer = w
+    if (!w) {
+      this.clear()
+      this.setDisabled(true)
+    }
+  }
+  setDisabled(disabled :boolean = true) {
+    this.input.readOnly = disabled
+    this.button.disabled = disabled
+  }
+  clear() { this.input.value = '' }
+  protected abstract getTxData() :T
+}
+
+class TextInput extends InputBox<string> {
+  private readonly selEol :HTMLSelectElement
+  constructor(ctx :GlobalContext) {
+    super(ctx, 'Send UTF-8')
+    this.selEol = safeCastElement(HTMLSelectElement,
+      <select class="form-select flex-grow-0 flex-shrink-0" style="min-width: 6rem">
+        <option value="CRLF" selected>CRLF</option>
+        <option value="LF">LF</option>
+        <option value="CR">CR</option>
+        <option value="none">None</option>
+      </select>)
+    this.el.insertBefore(this.selEol, this.button)
+  }
+  protected override getTxData() :string {
+    let eol = '\r\n'
+    switch (this.selEol.value) {
+      case 'LF': eol = '\n'; break
+      case 'CR': eol = '\r'; break
+      case 'none': eol = ''; break
+    }
+    return this.input.value+eol
+  }
+}
+
+class BinaryInput extends InputBox<Uint8Array> {
+  constructor(ctx :GlobalContext) {
+    super(ctx, 'Send Bytes')
+    this.input.pattern = '^(0x)?([0-9a-fA-F]{2} ?)+$'
+  }
+  protected override getTxData() :Uint8Array {
+    let txt = this.input.value.trim()
+    if (txt.startsWith('0x')) txt = txt.substring(2)
+    return new Uint8Array( txt.toLowerCase().replace(/[^0-9a-f]/g, '').match(/.{1,2}/g)?.map(h => parseInt(h, 16)) ?? [] )
   }
 }
