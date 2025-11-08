@@ -501,7 +501,7 @@ export class SerialInterface {
 
 abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> {
   readonly el :HTMLDivElement
-  private readonly out :HTMLDivElement
+  protected readonly out :HTMLDivElement
   constructor() {
     this.out = safeCastElement(HTMLDivElement, <div class="d-flex flex-column font-monospace text-stroke-body"></div>)
     this.el = safeCastElement(HTMLDivElement, <div class="border rounded p-2 max-vh-50 overflow-auto">{this.out}</div>)
@@ -548,11 +548,15 @@ class TextOutput extends OutputBox<string, string> {
 }
 
 class BinaryOutput extends OutputBox<number, Uint8Array> {
+  constructor() {
+    super()
+    this.out.classList.remove('flex-column')
+    this.out.classList.add('flex-wrap','column-gap-4')
+  }
   protected override appendRxOne(item :number) :void {
-    if (this.count==9) this.curLine.innerText += '  '
-    else if (this.count>1) this.curLine.innerText += ' '
+    if (this.count>1) this.curLine.innerText += ' '
     this.curLine.innerText += item.toString(16).padStart(2,'0')
-    if (this.count>=16) this.newLine()
+    if (this.count>=8) this.newLine()
   }
 }
 
