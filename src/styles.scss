@@ -33,3 +33,61 @@
 .max-vh-50 {
   max-height: 50vh;
 }
+.white-space-pre {
+  white-space: pre;
+}
+
+.text-stroke-body {
+  //background-color: var(--#{bs.$prefix}body-bg);  // no, otherwise this is painted over the lower z-index below
+  text-shadow:
+       0 -1px 0 var(--#{bs.$prefix}body-bg),  // up
+       0  1px 0 var(--#{bs.$prefix}body-bg),  // down
+    -1px    0 0 var(--#{bs.$prefix}body-bg),  // left
+     1px    0 0 var(--#{bs.$prefix}body-bg);  // right
+}
+
+.non-printable {
+  color: var(--#{bs.$prefix}secondary);
+  text-shadow: none;
+  min-width: 1ch;
+  max-width: 1ch;
+  font-size: bs.$font-size-sm;
+  //user-select: none;  // ::before doesn't get copied in Chrome, and we need the user to be able to copy tabs and spaces
+  display: inline-block;
+  position: relative;
+  z-index: -1;
+  &-nul::before { content: "\2400" }
+  &-soh::before { content: "\2401" }
+  &-stx::before { content: "\2402" }
+  &-etx::before { content: "\2403" }
+  &-eot::before { content: "\2404" }
+  &-enq::before { content: "\2405" }
+  &-ack::before { content: "\2406" }
+  &-bel::before { content: "\2407" }
+  &-bs::before  { content: "\2408" }
+  &-ht::before  { content: "\2409" } &-ht { max-width: 8ch }  // allow tabs to be wider than 1ch
+  &-lf::before  { content: "\240a" }
+  &-vt::before  { content: "\240b" }
+  &-ff::before  { content: "\240c" }
+  &-cr::before  { content: "\240d" }
+  &-ss::before  { content: "\240e" }
+  &-si::before  { content: "\240f" }
+  &-dle::before { content: "\2410" }
+  &-dc1::before { content: "\2411" }
+  &-dc2::before { content: "\2412" }
+  &-dc3::before { content: "\2413" }
+  &-dc4::before { content: "\2414" }
+  &-nak::before { content: "\2415" }
+  &-syn::before { content: "\2416" }
+  &-etb::before { content: "\2417" }
+  &-can::before { content: "\2418" }
+  &-em::before  { content: "\2419" }
+  &-sub::before { content: "\241a" }
+  &-esc::before { content: "\241b" }
+  &-fs::before  { content: "\241c" }
+  &-gs::before  { content: "\241d" }
+  &-rs::before  { content: "\241e" }
+  &-us::before  { content: "\241f" }
+  &-sp::before  { content: "\2420" }
+  &-del::before { content: "\2421" }
+}

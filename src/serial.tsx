@@ -79,7 +79,7 @@ class SerialSettings {
         <option value="none" selected>None</option>
         <option value="hardware">Hardware</option>
       </select>)
-    //TODO Later: Could list a whole lot more Encodings from https://developer.mozilla.org/en-US/docs/Web/API/Encoding_API/Encodings
+    // In theory I could list a whole lot more Encodings from https://developer.mozilla.org/en-US/docs/Web/API/Encoding_API/Encodings
     this.selEncoding = safeCastElement(HTMLSelectElement,
       <select class="form-select" id={ctx.genId()}>
         <option value="utf-8" selected>UTF-8</option>
@@ -156,6 +156,15 @@ class SerialSettings {
     Collapse.getOrCreateInstance(this.el, { toggle: false }).hide()
   }
 }
+
+const CONTROL_CHAR_MAP = {
+  0x00: 'nul', 0x01: 'soh', 0x02: 'stx', 0x03: 'etx', 0x04: 'eot', 0x05: 'enq', 0x06: 'ack', 0x07: 'bel',
+  0x08: 'bs',  0x09: 'ht',  0x0a: 'lf',  0x0b: 'vt',  0x0c: 'ff',  0x0d: 'cr',  0x0e: 'ss',  0x0f: 'si',
+  0x10: 'dle', 0x11: 'dc1', 0x12: 'dc2', 0x13: 'dc3', 0x14: 'dc4', 0x15: 'nak', 0x16: 'syn', 0x17: 'etb',
+  0x18: 'can', 0x19: 'em',  0x1a: 'sub', 0x1b: 'esc', 0x1c: 'fs',  0x1d: 'gs',  0x1e: 'rs',  0x1f: 'us',
+  0x20: 'sp',  0x7f: 'del' } as const
+
+const ui8str = (bs :Uint8Array) => Array.prototype.map.call(bs, (b :number) => b.toString(16).padStart(2,'0')).join('')
 
 class BTUUID {
   /* `allowedBluetoothServiceClassIds` containing a string that is not a UUID apparently causes requestPort()
@@ -251,12 +260,12 @@ export class SerialInterface {
       <button type="button" class="btn btn-outline-danger flex-grow-1" disabled><i class="bi-x-octagon me-1"/> Disconnect</button>)
     this.settings.btnExpand.classList.add('flex-grow-1')
 
-    this.textOutput = safeCastElement(HTMLPreElement, <pre></pre>)
+    this.textOutput = safeCastElement(HTMLDivElement, <div class="d-flex flex-column font-monospace text-stroke-body"></div>)
     this.divTextOut = safeCastElement(HTMLDivElement, <div class="border rounded p-2 max-vh-50 overflow-auto">{this.textOutput}</div>)
     this.btnSendText = safeCastElement(HTMLButtonElement,
       <button type="button" class="btn btn-outline-primary" id={ctx.genId()} disabled><i class="bi-send me-1"/> Send UTF-8</button>)
     this.inpSendText = safeCastElement(HTMLInputElement,
-      <input class="form-control" type="text" aria-describedby={this.btnSendText.id}/>)
+      <input class="form-control font-monospace" type="text" aria-describedby={this.btnSendText.id}/>)
     this.selEol = safeCastElement(HTMLSelectElement,
       <select class="form-select flex-grow-0 flex-shrink-0" style="min-width: 6rem">
         <option value="CRLF" selected>CRLF</option>
@@ -265,12 +274,12 @@ export class SerialInterface {
         <option value="none">None</option>
       </select>)
 
-    this.binaryOutput = safeCastElement(HTMLPreElement, <pre></pre>)
+    this.binaryOutput = safeCastElement(HTMLDivElement, <div class="d-flex flex-column font-monospace text-stroke-body"></div>)
     this.divBinaryOut = safeCastElement(HTMLDivElement, <div class="border rounded p-2 max-vh-50 overflow-auto">{this.binaryOutput}</div>)
     this.btnSendBytes = safeCastElement(HTMLButtonElement,
       <button type="button" class="btn btn-outline-primary" id={ctx.genId()} disabled><i class="bi-send me-1"/> Send Bytes</button>)
     this.inpSendBytes = safeCastElement(HTMLInputElement,
-      <input class="form-control" type="text" pattern="^(0x)?([0-9a-fA-F]{2} ?)+$" aria-describedby={this.btnSendBytes.id}/>)
+      <input class="form-control font-monospace" type="text" pattern="^(0x)?([0-9a-fA-F]{2} ?)+$" aria-describedby={this.btnSendBytes.id}/>)
 
     const idNavTextTab = ctx.genId()
     const idNavText = ctx.genId()
@@ -439,17 +448,44 @@ export class SerialInterface {
     let textReader :ReadableStreamDefaultReader<string>
     let bytesReader :ReadableStreamDefaultReader<Uint8Array>
 
-    const ui8str = (b :Uint8Array) => Array.prototype.map.call(b, (x :number) => x.toString(16).padStart(2,'0')).join('')
-
+    let curTextLine :HTMLElement
+    const newTextLine = () => this.textOutput.appendChild(curTextLine = <div class="white-space-pre"></div>)
+    newTextLine()
+    let prevCharWasCr = false as boolean
     const rxText = (text :string) => {
-      //TODO: Switching tabs does weird stuff with the contents
-      this.textOutput.innerText += text
+      for (const c of text) {
+        const cp = c.codePointAt(0)??0
+        if ( prevCharWasCr && cp != 0x0A ) newTextLine()  // Anything other than LF after CR: treat CR as NL
+        //TODO Later: Tab characters aren't correctly aligned
+        curTextLine.appendChild( cp in CONTROL_CHAR_MAP
+          ? <span class={`non-printable non-printable-${CONTROL_CHAR_MAP[cp as keyof typeof CONTROL_CHAR_MAP]}`}>{
+            cp == 0x20 ? ' ' : cp == 0x09 ? '\t' : '' }</span>
+          : cp == 0xFFFD ? <i class="non-printable bi-question-diamond-fill"/>
+          : document.createTextNode(c) )
+        if ( cp == 0x0A ) newTextLine()  // LF means NL, as in CRLF or plain LF (plain CR is handled above)
+        prevCharWasCr = cp == 0x0D
+      }
+      //TODO: Display sent lines as well?
+      //TODO: Color lines with "error"/"warn"/"fatal"/"critical" etc?
       //TODO: scroll to bottom (unless user has scrolled elsewhere)
       //TODO: Trim output size
     }
+
+    let curBinLine :HTMLElement
+    let curByteCount :number
+    const newBinLine = () => {
+      this.binaryOutput.appendChild(curBinLine = <div class="white-space-pre"></div>)
+      curByteCount = 0
+    }
+    newBinLine()
     const rxBytes = (bytes :Uint8Array) => {
+      for (const b of bytes) {
+        if (curByteCount==8) curBinLine.innerText += '  '
+        else if (curByteCount) curBinLine.innerText += ' '
+        curBinLine.innerText += b.toString(16).padStart(2,'0')
+        if (++curByteCount>=16) newBinLine()
+      }
       //TODO: Same as text output above
-      this.binaryOutput.innerText += ui8str(bytes)+'\n'
     }
 
     const readTextLoop = async () => {
@@ -511,7 +547,7 @@ export class SerialInterface {
       console.debug('wrote bytes', ui8str(b))
     }
 
-    //TODO: support enter key in text boxes
+    //TODO: support enter key and up arrow key in text boxes
     const sendTextHandler = async () => {
       let eol = '\r\n'
       switch (this.selEol.value) {
@@ -541,8 +577,9 @@ export class SerialInterface {
       this.btnDisconnect.removeEventListener('click', closeHandler)
       this.inpSendText.value = ''
       this.inpSendBytes.value = ''
-      this.textOutput.innerText = ''
-      this.binaryOutput.innerText = ''
+      //TODO Later: Consider that users might still want to see the output upon disconnect
+      this.textOutput.replaceChildren()
+      this.binaryOutput.replaceChildren()
       // the following two may fail if the remote device disconnected
       try { await textReader.cancel() } catch (ex) { console.debug('Ignoring', ex) }
       try { await bytesReader.cancel() } catch (ex) { console.debug('Ignoring', ex) }
