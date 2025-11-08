@@ -214,14 +214,12 @@ export class SerialInterface {
   private readonly btnDisconnect :HTMLButtonElement
   private readonly divConnected :HTMLDivElement
 
-  private readonly divTextOut :HTMLDivElement
-  private readonly textOutput :HTMLElement
+  private readonly textOutput :TextOutput
   private readonly inpSendText :HTMLInputElement
   private readonly selEol :HTMLSelectElement
   private readonly btnSendText :HTMLButtonElement
 
-  private readonly divBinaryOut :HTMLDivElement
-  private readonly binaryOutput: HTMLElement
+  private readonly binaryOutput: BinaryOutput
   private readonly inpSendBytes :HTMLInputElement
   private readonly btnSendBytes :HTMLButtonElement
 
@@ -260,8 +258,7 @@ export class SerialInterface {
       <button type="button" class="btn btn-outline-danger flex-grow-1" disabled><i class="bi-x-octagon me-1"/> Disconnect</button>)
     this.settings.btnExpand.classList.add('flex-grow-1')
 
-    this.textOutput = safeCastElement(HTMLDivElement, <div class="d-flex flex-column font-monospace text-stroke-body"></div>)
-    this.divTextOut = safeCastElement(HTMLDivElement, <div class="border rounded p-2 max-vh-50 overflow-auto">{this.textOutput}</div>)
+    this.textOutput = new TextOutput()
     this.btnSendText = safeCastElement(HTMLButtonElement,
       <button type="button" class="btn btn-outline-primary" id={ctx.genId()} disabled><i class="bi-send me-1"/> Send UTF-8</button>)
     this.inpSendText = safeCastElement(HTMLInputElement,
@@ -274,8 +271,7 @@ export class SerialInterface {
         <option value="none">None</option>
       </select>)
 
-    this.binaryOutput = safeCastElement(HTMLDivElement, <div class="d-flex flex-column font-monospace text-stroke-body"></div>)
-    this.divBinaryOut = safeCastElement(HTMLDivElement, <div class="border rounded p-2 max-vh-50 overflow-auto">{this.binaryOutput}</div>)
+    this.binaryOutput = new BinaryOutput()
     this.btnSendBytes = safeCastElement(HTMLButtonElement,
       <button type="button" class="btn btn-outline-primary" id={ctx.genId()} disabled><i class="bi-send me-1"/> Send Bytes</button>)
     this.inpSendBytes = safeCastElement(HTMLInputElement,
@@ -298,13 +294,13 @@ export class SerialInterface {
         <div class="tab-content">
           <div class="tab-pane fade show active" id={idNavText} role="tabpanel" aria-labelledby={idNavTextTab} tabindex="0">
             <div class="d-flex flex-column gap-2">
-              {this.divTextOut}
+              {this.textOutput.el}
               <div class="input-group">{this.inpSendText}{this.selEol}{this.btnSendText}</div>
             </div>
           </div>
           <div class="tab-pane fade" id={idNavBinary} role="tabpanel" aria-labelledby={idNavBinaryTag} tabindex="0">
             <div class="d-flex flex-column gap-2">
-              {this.divBinaryOut}
+              {this.binaryOutput.el}
               <div class="input-group">{this.inpSendBytes}{this.btnSendBytes}</div>
             </div>
           </div>
@@ -448,46 +444,6 @@ export class SerialInterface {
     let textReader :ReadableStreamDefaultReader<string>
     let bytesReader :ReadableStreamDefaultReader<Uint8Array>
 
-    let curTextLine :HTMLElement
-    const newTextLine = () => this.textOutput.appendChild(curTextLine = <div class="white-space-pre"></div>)
-    newTextLine()
-    let prevCharWasCr = false as boolean
-    const rxText = (text :string) => {
-      for (const c of text) {
-        const cp = c.codePointAt(0)??0
-        if ( prevCharWasCr && cp != 0x0A ) newTextLine()  // Anything other than LF after CR: treat CR as NL
-        //TODO Later: Tab characters aren't correctly aligned
-        curTextLine.appendChild( cp in CONTROL_CHAR_MAP
-          ? <span class={`non-printable non-printable-${CONTROL_CHAR_MAP[cp as keyof typeof CONTROL_CHAR_MAP]}`}>{
-            cp == 0x20 ? ' ' : cp == 0x09 ? '\t' : '' }</span>
-          : cp == 0xFFFD ? <i class="non-printable bi-question-diamond-fill"/>
-          : document.createTextNode(c) )
-        if ( cp == 0x0A ) newTextLine()  // LF means NL, as in CRLF or plain LF (plain CR is handled above)
-        prevCharWasCr = cp == 0x0D
-      }
-      //TODO: Display sent lines as well?
-      //TODO: Color lines with "error"/"warn"/"fatal"/"critical" etc?
-      //TODO: scroll to bottom (unless user has scrolled elsewhere)
-      //TODO: Trim output size
-    }
-
-    let curBinLine :HTMLElement
-    let curByteCount :number
-    const newBinLine = () => {
-      this.binaryOutput.appendChild(curBinLine = <div class="white-space-pre"></div>)
-      curByteCount = 0
-    }
-    newBinLine()
-    const rxBytes = (bytes :Uint8Array) => {
-      for (const b of bytes) {
-        if (curByteCount==8) curBinLine.innerText += '  '
-        else if (curByteCount) curBinLine.innerText += ' '
-        curBinLine.innerText += b.toString(16).padStart(2,'0')
-        if (++curByteCount>=16) newBinLine()
-      }
-      //TODO: Same as text output above
-    }
-
     const readTextLoop = async () => {
       try {
         while (true) {
@@ -495,7 +451,7 @@ export class SerialInterface {
           try { rv = await textReader.read() }
           /* Since this is a teed reader, assume that we should be getting the same errors as the other one, so handle them there. */
           catch (ex) { console.debug('Breaking readTextLoop because', ex); break }
-          if (rv.value!=undefined) rxText(rv.value)
+          if (rv.value!=undefined) this.textOutput.appendRx(rv.value)
           if (rv.done) break
         }
       } finally { textReader.releaseLock() }
@@ -507,7 +463,7 @@ export class SerialInterface {
           try { rv = await bytesReader.read() }
           /* If port.readable is still set afterwards, this is non-fatal, such as a buffer overflow, framing error, or parity error. */
           catch (ex) { console.warn('Breaking readBytesLoop because', ex); break }
-          if (rv.value!=undefined) rxBytes(rv.value)
+          if (rv.value!=undefined) this.binaryOutput.appendRx(rv.value)
           if (rv.done) break
         }
       } finally { bytesReader.releaseLock() }
@@ -578,8 +534,8 @@ export class SerialInterface {
       this.inpSendText.value = ''
       this.inpSendBytes.value = ''
       //TODO Later: Consider that users might still want to see the output upon disconnect
-      this.textOutput.replaceChildren()
-      this.binaryOutput.replaceChildren()
+      this.textOutput.clear()
+      this.binaryOutput.clear()
       // the following two may fail if the remote device disconnected
       try { await textReader.cancel() } catch (ex) { console.debug('Ignoring', ex) }
       try { await bytesReader.cancel() } catch (ex) { console.debug('Ignoring', ex) }
@@ -591,4 +547,58 @@ export class SerialInterface {
 
   }
 
+}
+
+abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> {
+  readonly el :HTMLDivElement
+  private readonly out :HTMLDivElement
+  constructor() {
+    this.out = safeCastElement(HTMLDivElement, <div class="d-flex flex-column font-monospace text-stroke-body"></div>)
+    this.el = safeCastElement(HTMLDivElement, <div class="border rounded p-2 max-vh-50 overflow-auto">{this.out}</div>)
+    this.newLine()
+  }
+  protected curLine !:HTMLDivElement  // ! = is definitely initialized via this.newLine() call in constructor
+  protected newLine() {
+    this.curLine = safeCastElement(HTMLDivElement, <div class="white-space-pre"></div>)
+    this.out.appendChild(this.curLine)
+    this.count = 0
+    //TODO: Trim output size
+  }
+  protected count :number = 0
+  appendRx(items :U) :void {
+    for(const item of items) {
+      this.appendRxOne(item)
+      this.count++
+    }
+    //TODO: Display sent lines as well?
+    //TODO: scroll to bottom (unless user has scrolled elsewhere)
+  }
+  protected abstract appendRxOne(item :T) :void
+  clear() { this.out.replaceChildren() }
+}
+
+class TextOutput extends OutputBox<string, string> {
+  private prevCharWasCr :boolean = false
+  protected override appendRxOne(item :string) :void {
+    const cp = item.codePointAt(0)??0
+    if ( this.prevCharWasCr && cp != 0x0A ) this.newLine()  // Anything other than LF after CR: treat CR as NL
+    //TODO Later: Tab characters aren't correctly aligned
+    this.curLine.appendChild( cp in CONTROL_CHAR_MAP
+      ? <span class={`non-printable non-printable-${CONTROL_CHAR_MAP[cp as keyof typeof CONTROL_CHAR_MAP]}`}>{
+        cp == 0x20 ? ' ' : cp == 0x09 ? '\t' : '' }</span>
+      : cp == 0xFFFD ? <i class="non-printable bi-question-diamond-fill"/>
+        : document.createTextNode(item) )
+    if ( cp == 0x0A ) this.newLine()  // LF means NL, as in CRLF or plain LF (plain CR is handled above)
+    this.prevCharWasCr = cp == 0x0D
+    //TODO: Color lines with "error"/"warn"/"fatal"/"critical" etc?
+  }
+}
+
+class BinaryOutput extends OutputBox<number, Uint8Array> {
+  protected override appendRxOne(item :number) :void {
+    if (this.count==8) this.curLine.innerText += '  '
+    else if (this.count) this.curLine.innerText += ' '
+    this.curLine.innerText += item.toString(16).padStart(2,'0')
+    if (this.count>=15) this.newLine()
+  }
 }
