@@ -556,7 +556,8 @@ class BinaryOutput extends OutputBox<number, Uint8Array> {
 type InputWriter<T extends NonNullable<unknown>> = (data :T) => Promise<void>
 
 abstract class InputBox<T extends NonNullable<unknown>> {
-  readonly el :HTMLElement
+  readonly el
+  protected readonly inpGrp :HTMLDivElement
   protected readonly input :HTMLInputElement
   protected readonly button :HTMLButtonElement
   private _writer :InputWriter<T>|null = null
@@ -565,15 +566,21 @@ abstract class InputBox<T extends NonNullable<unknown>> {
       <button type="button" class="btn btn-outline-primary" id={ctx.genId()} disabled><i class="bi-send me-1"/> {label}</button>)
     this.input = safeCastElement(HTMLInputElement,
       <input class="form-control font-monospace" type="text" aria-describedby={this.button.id}/>)
-    this.el = safeCastElement(HTMLDivElement, <div class="input-group">{this.input}{this.button}</div>)
-    this.button.addEventListener('click', async () => {
-      if (this._writer) {
-        await this._writer(this.getTxData())
-        this.clear()
-      }
-      else throw new Error('Attempt to send when no writer set; shouldn\'t happen!')
+    this.inpGrp = safeCastElement(HTMLDivElement, <div class="input-group">{this.input}{this.button}</div>)
+    this.el = safeCastElement(HTMLFormElement, <form>{this.inpGrp}</form>)
+    this.button.addEventListener('click', () => this.transmit())
+    this.el.addEventListener('submit', event => {
+      event.preventDefault()
+      return this.transmit()
     })
-    //TODO: support enter key and up arrow key in text boxes
+    //TODO: support up arrow key in text boxes
+  }
+  private async transmit() {
+    if (this._writer) {
+      await this._writer(this.getTxData())
+      this.clear()
+    }
+    else throw new Error('Attempt to send when no writer set; shouldn\'t happen!')
   }
   set writer(w :InputWriter<T>|null) {
     this._writer = w
@@ -594,14 +601,15 @@ class TextInput extends InputBox<string> {
   private readonly selEol :HTMLSelectElement
   constructor(ctx :GlobalContext) {
     super(ctx, 'Send UTF-8')
+    this.input.name = 'transmit-text-input'
     this.selEol = safeCastElement(HTMLSelectElement,
-      <select class="form-select flex-grow-0 flex-shrink-0" style="min-width: 6rem">
+      <select class="form-select flex-grow-0 flex-shrink-0" style="min-width: 6rem" name="transmit-text-eol">
         <option value="CRLF" selected>CRLF</option>
         <option value="LF">LF</option>
         <option value="CR">CR</option>
         <option value="none">None</option>
       </select>)
-    this.el.insertBefore(this.selEol, this.button)
+    this.inpGrp.insertBefore(this.selEol, this.button)
   }
   protected override getTxData() :string {
     let eol = '\r\n'
@@ -617,6 +625,7 @@ class TextInput extends InputBox<string> {
 class BinaryInput extends InputBox<Uint8Array> {
   constructor(ctx :GlobalContext) {
     super(ctx, 'Send Bytes')
+    this.input.name = 'transmit-bytes-input'
     this.input.pattern = '^(0x)?([0-9a-fA-F]{2} ?)+$'
   }
   protected override getTxData() :Uint8Array {
