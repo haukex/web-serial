@@ -90,6 +90,9 @@ class SerialSettings {
     this.el =
       <div class="collapse" id={ctx.genId()}>
         <div class="card card-body gap-2">
+          <div class="alert alert-warning mb-0" role="alert"><i class="bi-exclamation-triangle me-1"/>
+            Note that serial port settings will not take effect for Bluetooth serial ports!
+            Only <em>Input Encoding</em> will be applied.</div>
           <div class="input-group">
             <label class="input-group-text" for={this.inpBaudRate.id}>Baud Rate</label>{this.inpBaudRate}{datalistBaud}</div>
           <div class="input-group">
@@ -427,7 +430,7 @@ export class SerialInterface {
         while (true) {
           let rv :ReadableStreamReadResult<string>
           try { rv = await textReader.read() }
-          /* Since this is a teed reader, assume that we should be getting the same errors as the other one, so handle them there. */
+          /* Since this is a `tee`ed reader, assume that we should be getting the same errors as the other one, so handle them there. */
           catch (ex) { console.debug('Breaking readTextLoop because', ex); break }
           if (rv.value!=undefined) this.textOutput.appendRx(rv.value)
           if (rv.done) break
