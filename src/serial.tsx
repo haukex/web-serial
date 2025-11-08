@@ -488,19 +488,13 @@ export class SerialInterface {
     const readUntilClosedPromise = readUntilClosed()
 
     const encoder = new TextEncoder()
-    const writeString = async (s :string) => {
+    const writeToPort = async (data :Uint8Array|string) => {
       if (port.writable==null) throw new Error('write on closed port')
       const bytesWriter = port.writable.getWriter()
-      await bytesWriter.write(encoder.encode(s))
+      await bytesWriter.write( typeof data === 'string' ? encoder.encode(data) : data )
       bytesWriter.releaseLock()
-      console.debug('wrote text', s)
-    }
-    const writeBytes = async (b :Uint8Array) => {
-      if (port.writable==null) throw new Error('write on closed port')
-      const bytesWriter = port.writable.getWriter()
-      await bytesWriter.write(b)
-      bytesWriter.releaseLock()
-      console.debug('wrote bytes', ui8str(b))
+      if (typeof data === 'string') console.debug('wrote string', data)
+      else console.debug('wrote bytes', ui8str(data))
     }
 
     //TODO: support enter key and up arrow key in text boxes
@@ -511,7 +505,7 @@ export class SerialInterface {
         case 'CR': eol = '\r'; break
         case 'none': eol = ''; break
       }
-      await writeString(this.inpSendText.value+eol)
+      await writeToPort(this.inpSendText.value+eol)
       this.inpSendText.value = ''
     }
     this.btnSendText.addEventListener('click', sendTextHandler)
@@ -519,7 +513,7 @@ export class SerialInterface {
     const sendBytesHandler = async () => {
       let txt = this.inpSendBytes.value.trim()
       if (txt.startsWith('0x')) txt = txt.substring(2)
-      await writeBytes(new Uint8Array(
+      await writeToPort(new Uint8Array(
         txt.toLowerCase().replace(/[^0-9a-f]/g, '').match(/.{1,2}/g)?.map(h => parseInt(h, 16)) ?? [] ))
       this.inpSendBytes.value = ''
     }
