@@ -505,11 +505,14 @@ abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> 
   constructor() {
     this.out = safeCastElement(HTMLDivElement, <div class="d-flex flex-column font-monospace text-stroke-body"></div>)
     this.el = safeCastElement(HTMLDivElement, <div class="border rounded p-2 max-vh-50 overflow-auto">{this.out}</div>)
-    this.newLine()
+    this.curLine = this.makeNewLine()
   }
-  protected curLine !:HTMLDivElement  // ! = is definitely initialized via this.newLine() call in constructor
+  protected curLine :HTMLDivElement
+  private makeNewLine() { return safeCastElement(HTMLDivElement, <div class="white-space-pre"></div>) }
   protected newLine() {
-    this.curLine = safeCastElement(HTMLDivElement, <div class="white-space-pre"></div>)
+    // if the count is zero here, then the line is empty, no sense in making a new line...
+    if (!this.count) console.warn('newLine shouldn\'t be called when count is 0')
+    this.curLine = this.makeNewLine()
     this.out.appendChild(this.curLine)
     this.count = 0
     //TODO: Trim output size
@@ -517,8 +520,8 @@ abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> 
   protected count :number = 0
   appendRx(items :U) :void {
     for(const item of items) {
-      this.appendRxOne(item)
       this.count++
+      this.appendRxOne(item)
     }
     //TODO: Display sent lines as well?
     //TODO: scroll to bottom (unless user has scrolled elsewhere)
@@ -546,10 +549,10 @@ class TextOutput extends OutputBox<string, string> {
 
 class BinaryOutput extends OutputBox<number, Uint8Array> {
   protected override appendRxOne(item :number) :void {
-    if (this.count==8) this.curLine.innerText += '  '
-    else if (this.count) this.curLine.innerText += ' '
+    if (this.count==9) this.curLine.innerText += '  '
+    else if (this.count>1) this.curLine.innerText += ' '
     this.curLine.innerText += item.toString(16).padStart(2,'0')
-    if (this.count>=15) this.newLine()
+    if (this.count>=16) this.newLine()
   }
 }
 
