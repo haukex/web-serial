@@ -607,10 +607,10 @@ abstract class InputBox<T extends NonNullable<unknown>> {
 class TextInput extends InputBox<string> {
   private readonly selEol :HTMLSelectElement
   constructor(ctx :GlobalContext) {
-    super(ctx, 'Send UTF-8')
+    super(ctx, 'UTF-8')
     this.input.name = 'transmit-text-input'
     this.selEol = safeCastElement(HTMLSelectElement,
-      <select class="form-select flex-grow-0 flex-shrink-0" style="min-width: 6rem" name="transmit-text-eol">
+      <select class="form-select flex-grow-0 flex-shrink-0" style="min-width: 5.3rem" name="transmit-text-eol">
         <option value="CRLF" selected>CRLF</option>
         <option value="LF">LF</option>
         <option value="CR">CR</option>
@@ -631,7 +631,7 @@ class TextInput extends InputBox<string> {
 
 class BinaryInput extends InputBox<Uint8Array> {
   constructor(ctx :GlobalContext) {
-    super(ctx, 'Send Bytes')
+    super(ctx, 'Bytes')
     this.input.name = 'transmit-bytes-input'
     this.input.pattern = '^(0x)?([0-9a-fA-F]{2} ?)+$'
   }
