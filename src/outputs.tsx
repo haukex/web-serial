@@ -28,21 +28,27 @@ const CONTROL_CHAR_MAP = {  // see styles.scss
 abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> {
   readonly el :HTMLDivElement
   protected readonly out :HTMLDivElement
-  protected curLine :HTMLDivElement
+  private _curLine :HTMLDivElement
+  protected get curLine() { return this._curLine }
+  private curLineOuter :HTMLDivElement
   protected countInLine :number = 0
   constructor() {
     this.out = safeCastElement(HTMLDivElement, <div class="d-flex flex-column"></div>)
-    this.el = safeCastElement(HTMLDivElement, <div class="border rounded p-2 max-vh-50 overflow-auto">{this.out}</div>)
-    this.curLine = this.makeNewLine()
+    this.el = safeCastElement(HTMLDivElement, <div class="border rounded p-2 max-vh-50 overflow-auto">{this.out}</div>);
+    [this.curLineOuter, this._curLine] = this.makeNewLine()
   }
-  private makeNewLine() {
-    return safeCastElement(HTMLDivElement, <div class="white-space-pre font-monospace text-stroke-body"></div>)
+  private makeNewLine() :[HTMLDivElement, HTMLDivElement] {
+    const l = safeCastElement(HTMLDivElement,
+      <div class="white-space-pre font-monospace text-stroke-body flex-grow-1"></div>)
+    return [
+      safeCastElement(HTMLDivElement,
+        <div class="d-flex flex-nowrap"><div class="pe-2"><i class="text-info bi-box-arrow-in-down-right"/></div>{l}</div>), l ]
   }
   protected newLine() {
     // if the count is zero here, then the line is empty, no sense in making a new line...
-    if (!this.countInLine) console.warn('newLine shouldn\'t be called when count is 0')
-    this.curLine = this.makeNewLine()
-    this.out.appendChild(this.curLine)
+    if (!this.countInLine) console.warn('newLine shouldn\'t be called when count is 0');
+    [this.curLineOuter, this._curLine] = this.makeNewLine()
+    this.out.appendChild(this.curLineOuter)
     this.countInLine = 0
     //TODO: Trim output size
   }
