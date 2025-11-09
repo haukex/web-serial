@@ -47,6 +47,8 @@ export class SerialInterface {
   private readonly ulPorts :HTMLDivElement
   private readonly settings :SerialSettings
   private readonly btnDisconnect :HTMLButtonElement
+
+  private readonly btnCloseConn :HTMLButtonElement
   private readonly divConnected :HTMLDivElement
 
   private readonly textOutput :TextOutput
@@ -108,11 +110,18 @@ export class SerialInterface {
     panelBinary.setAttribute('aria-labelledby', tabBinary.id)
     tabText.addEventListener('shown.bs.tab', () => this.textOutput.shown())
     tabBinary.addEventListener('shown.bs.tab', () => this.binaryOutput.shown())
+    this.btnCloseConn = safeCastElement(HTMLButtonElement,
+      <button type="button" class="btn-close" aria-label="Close" disabled></button>)
     this.divConnected = safeCastElement(HTMLDivElement,
       <div class="container border rounded p-3 collapse">
-        <nav><div class="nav nav-tabs mb-2" role="tablist">{tabText}{tabBinary}</div></nav>
+        <div class="d-flex flex-row flex-nowrap">
+          <nav class="flex-grow-1"><div class="nav nav-tabs mb-2" role="tablist">{tabText}{tabBinary}</div></nav>
+          {this.btnCloseConn}
+        </div>
         <div class="tab-content">{panelText}{panelBinary}</div>
       </div>)
+    this.btnCloseConn.addEventListener('click', () =>
+      Collapse.getOrCreateInstance(this.divConnected, { toggle: false }).hide() )
     this.el = 'serial' in navigator
       ? <div class="d-flex flex-column gap-3">
         <div class="container border rounded p-3">
@@ -220,7 +229,8 @@ export class SerialInterface {
     this.btnDisconnect.classList.toggle('btn-outline-danger', !connected)
     this.textInput.setDisabled(!connected)
     this.binaryInput.setDisabled(!connected)
-    this.connected = connected
+    this.btnCloseConn.disabled = connected
+    this.btnCloseConn.classList.toggle('visually-hidden', connected)
     const collPorts = Collapse.getOrCreateInstance(this.ulPorts, { toggle: false })
     const collConn = Collapse.getOrCreateInstance(this.divConnected, { toggle: false })
     if (state && state.connected) {
@@ -229,8 +239,9 @@ export class SerialInterface {
       collConn.show()
     } else if (state && !state.connected) {
       collPorts.show()
-      collConn.hide()
+      //collConn.hide()  // only on manual close
     }
+    this.connected = connected
   }
 
   private async connect(port :SerialPort) {
@@ -244,6 +255,9 @@ export class SerialInterface {
       this.updateState({ connected: false })
       return
     }
+
+    this.textOutput.clear()
+    this.binaryOutput.clear()
 
     // https://developer.chrome.com/docs/capabilities/serial
 
@@ -322,11 +336,8 @@ export class SerialInterface {
       this.btnDisconnect.removeEventListener('click', closeHandler)
       this.textInput.writer = null
       this.binaryInput.writer = null
-      //TODO Later: Consider that users might still want to see the output upon disconnect
-      this.textOutput.clear()
-      this.binaryOutput.clear()
       // the following two may fail if the remote device disconnected
-      try { await textReader.cancel() } catch (ex) { console.debug('Ignoring', ex) }
+      try { await textReader.cancel()  } catch (ex) { console.debug('Ignoring', ex) }
       try { await bytesReader.cancel() } catch (ex) { console.debug('Ignoring', ex) }
       await readUntilClosedPromise
       console.debug('closed', portString(port))

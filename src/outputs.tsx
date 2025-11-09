@@ -53,14 +53,17 @@ abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> 
       // Note this will fire the scrollend handler too, but that's ok, since its result will be `true` anyway.
       setTimeout(() => this.el.scrollTop = this.el.scrollHeight, 1)  // wait for any newly added element to be rendered
   }
-  shown() { this.maybeScrollToBottom() }
+  shown() {
+    this.el.scrollIntoView()
+    this.maybeScrollToBottom()
+  }
   private _newLine(type :'rx'|'tx') :HTMLDivElement {
     const line = safeCastElement(HTMLDivElement,
       <div class="white-space-pre font-monospace text-stroke-body flex-grow-1"></div>)
     const icon = type=='rx'
       ? <i class="text-info bi-box-arrow-in-down-right"/>
       : <i class="text-primary bi-box-arrow-up-right"/>
-    this.out.appendChild(<div class="d-flex flex-nowrap"><div class="pe-2">{icon}</div>{line}</div>)
+    this.out.appendChild(<div class="d-flex flex-row flex-nowrap"><div class="pe-2">{icon}</div>{line}</div>)
     while(this.out.childElementCount>MAX_OUTPUTS && this.out.firstElementChild)
       this.out.removeChild(this.out.firstElementChild)
     this.maybeScrollToBottom()

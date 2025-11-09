@@ -18,6 +18,7 @@
  */
 import { jsx, safeCastElement } from './jsx-dom'
 import { GlobalContext } from './main'
+import { Dropdown } from 'bootstrap'
 
 type InputWriter<T extends NonNullable<unknown>> = (data :T) => Promise<void>
 
@@ -78,10 +79,8 @@ abstract class InputBox<T extends NonNullable<unknown>> {
   }
   set writer(w :InputWriter<T>|null) {
     this._writer = w
-    if (!w) {
-      this.clear()
-      this.setDisabled(true)
-    }
+    if (w) this.clear()
+    else this.setDisabled(true)
   }
   setDisabled(disabled :boolean = true) {
     this.input.readOnly = disabled
@@ -92,11 +91,12 @@ abstract class InputBox<T extends NonNullable<unknown>> {
 }
 
 export class TextInput extends InputBox<string> {
+  private readonly btnDrop :HTMLButtonElement
   constructor(ctx :GlobalContext) {
     super(ctx, 'UTF-8')
     this.input.name = 'transmit-text-input'
     const lblEol = <span class="d-none d-md-inline me-1">CRLF</span>
-    const dropBtn = safeCastElement(HTMLButtonElement,
+    this.btnDrop = safeCastElement(HTMLButtonElement,
       <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split"
         data-bs-toggle="dropdown" aria-expanded="false">
         <span class="visually-hidden">Line Endings: </span> {lblEol}
@@ -109,8 +109,13 @@ export class TextInput extends InputBox<string> {
         return <li class="dropdown-item" onclick={()=>inpRadio.click()}><div class="form-check">
           {inpRadio} <label class="form-check-label" for={inpRadio.id}>{e}</label> </div></li>
       }) } </ul>)
-    this.inpGrp.insertBefore(dropBtn, this.button)
+    this.inpGrp.insertBefore(this.btnDrop, this.button)
     this.inpGrp.insertBefore(dropEol, this.button)
+  }
+  override setDisabled(disabled :boolean = true) {
+    super.setDisabled(disabled)
+    if (disabled) Dropdown.getOrCreateInstance(this.btnDrop).hide()
+    this.btnDrop.disabled = disabled
   }
   protected override getTxData() :string {
     let eol
