@@ -56,6 +56,8 @@
   display: inline-block;
   position: relative;
   z-index: -1;
+}
+[data-show-non-printable] .non-printable {
   &-nul::before { content: "\2400" }
   &-soh::before { content: "\2401" }
   &-stx::before { content: "\2402" }

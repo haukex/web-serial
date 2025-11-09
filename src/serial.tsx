@@ -100,7 +100,7 @@ export class SerialInterface {
     this.binaryInput = new BinaryInput(ctx)
 
     const panelText = <div class="tab-pane fade show active" id={ctx.genId()} role="tabpanel">
-      <div class="d-flex flex-column gap-2">{this.textOutput.el}{this.textInput.el}</div></div>
+      <div class="d-flex flex-column gap-2">{this.textOutput.el}{this.textInput.el}{this.textOutput.cbShowNonPrintable}</div></div>
     const panelBinary = <div class="tab-pane fade" id={ctx.genId()} role="tabpanel">
       <div class="d-flex flex-column gap-2">{this.binaryOutput.el}{this.binaryInput.el}</div></div>
     const tabText = <button type="button" role="tab" class="nav-link active" id={ctx.genId()}
