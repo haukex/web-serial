@@ -25,6 +25,8 @@ const CONTROL_CHAR_MAP = {  // see styles.scss
   0x18: 'can', 0x19: 'em',  0x1a: 'sub', 0x1b: 'esc', 0x1c: 'fs',  0x1d: 'gs',  0x1e: 'rs',  0x1f: 'us',
   0x20: 'sp',  0x7f: 'del' } as const
 
+//TODO Later: When the output divs are large, switching tabs produces "[Violation] Forced reflow while executing JavaScript took <N>ms"
+
 const MAX_OUTPUTS = 1000
 
 abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> {
