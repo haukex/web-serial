@@ -21,6 +21,8 @@ import { GlobalContext } from './main'
 
 type InputWriter<T extends NonNullable<unknown>> = (data :T) => Promise<void>
 
+const MAX_HISTORY_SIZE = 1000
+
 abstract class InputBox<T extends NonNullable<unknown>> {
   readonly el :HTMLFormElement
   protected readonly inpGrp :HTMLDivElement
@@ -32,17 +34,47 @@ abstract class InputBox<T extends NonNullable<unknown>> {
       <button type="submit" class="btn btn-outline-primary" id={ctx.genId()} disabled><i class="bi-send me-1"/>
         <span class="d-none d-md-inline">Send </span>{label}</button>)
     this.input = safeCastElement(HTMLInputElement,
-      <input class="form-control font-monospace" type="text" aria-describedby={this.button.id}/>)
+      <input class="form-control font-monospace" type="text" aria-describedby={this.button.id} autocomplete="off" />)
     this.inpGrp = safeCastElement(HTMLDivElement, <div class="input-group">{this.input}{this.button}</div>)
     this.el = safeCastElement(HTMLFormElement, <form>{this.inpGrp}</form>)
+
+    const history :string[] = []  // could perhaps store this in the storage someday
+    let historyIndex = -1
+    let currentInput = ''
     this.el.addEventListener('submit', async event => {
       event.preventDefault()
       if (!this._writer) throw new Error('Attempt to send when no writer set; shouldn\'t happen!')
       if (!this.el.checkValidity()) return
       await this._writer(this.getTxData())
+      // add current input to history
+      const hi = history.indexOf(this.input.value)
+      if (hi>-1) history.splice(hi, 1)
+      history.unshift(this.input.value)
+      if (history.length>MAX_HISTORY_SIZE) history.pop()
+      // clear the input box
       this.clear()
+      historyIndex = -1
+      currentInput = ''
     })
-    //TODO: support up arrow key in text boxes
+    this.input.addEventListener('keydown', event => {
+      if (event.defaultPrevented) return
+      if (event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) return
+      if (event.key=='ArrowUp') {
+        if (historyIndex<0) currentInput = this.input.value
+        if (++historyIndex>=history.length) historyIndex=history.length-1
+        else this.input.value = history[historyIndex] ?? ''
+        event.preventDefault()
+        event.stopPropagation()
+      }
+      else if (event.key=='ArrowDown') {
+        if (historyIndex>=0) {
+          if (--historyIndex<0) this.input.value = currentInput
+          else this.input.value = history[historyIndex] ?? ''
+        }
+        event.preventDefault()
+        event.stopPropagation()
+      }
+    })
   }
   set writer(w :InputWriter<T>|null) {
     this._writer = w
