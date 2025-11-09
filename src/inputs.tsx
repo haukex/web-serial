@@ -95,15 +95,17 @@ export class TextInput extends InputBox<string> {
   constructor(ctx :GlobalContext) {
     super(ctx, 'UTF-8')
     this.input.name = 'transmit-text-input'
+    const lblEol = <span class="d-none d-md-inline me-1">CRLF</span>
     const dropBtn = safeCastElement(HTMLButtonElement,
       <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split"
         data-bs-toggle="dropdown" aria-expanded="false">
-        <span class="visually-hidden">Toggle Dropdown</span>
+        <span class="visually-hidden">Line Endings: </span> {lblEol}
       </button>)
     const dropEol = safeCastElement(HTMLUListElement,
       <ul class="dropdown-menu">{ ['CRLF','LF','CR','None'].map(e => {
         const inpRadio = safeCastElement(HTMLInputElement, <input class="form-check-input"
           type="radio" name="radio-tx-eol" id={ctx.genId()} value={e} checked={e==='CRLF'} />)
+        inpRadio.addEventListener('change', () => { if (inpRadio.checked) lblEol.innerText = e })
         return <li class="dropdown-item" onclick={()=>inpRadio.click()}><div class="form-check">
           {inpRadio} <label class="form-check-label" for={inpRadio.id}>{e}</label> </div></li>
       }) } </ul>)
