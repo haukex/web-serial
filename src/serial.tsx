@@ -300,15 +300,24 @@ export class SerialInterface {
     }
     const readUntilClosedPromise = readUntilClosed()
 
-    const encoder = new TextEncoder()
+    const txEncoder = new TextEncoder()  // always UTF-8
+    const txDecoder = new TextDecoder('UTF-8', { fatal: false, ignoreBOM: false })
     const writeToPort = async (data :Uint8Array|string) => {
       if (port.writable==null) throw new Error('write on closed port')
       if (!data.length) return
       const bytesWriter = port.writable.getWriter()
-      await bytesWriter.write( typeof data === 'string' ? encoder.encode(data) : data )
+      const out = typeof data === 'string' ? txEncoder.encode(data) : data
+      await bytesWriter.write(out)
       bytesWriter.releaseLock()
-      if (typeof data === 'string') console.debug('wrote string', JSON.stringify(data))
-      else console.debug('wrote bytes', ui8str(data))
+      if (typeof data === 'string') {
+        console.debug('wrote string', JSON.stringify(data))
+        this.textOutput.appendTx(data)
+        this.binaryOutput.appendTx(out)
+      } else {
+        console.debug('wrote bytes', ui8str(data))
+        this.textOutput.appendTx(txDecoder.decode(data))
+        this.binaryOutput.appendTx(data)
+      }
     }
     this.textInput.writer = writeToPort
     this.binaryInput.writer = writeToPort

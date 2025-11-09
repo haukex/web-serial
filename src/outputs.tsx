@@ -28,57 +28,77 @@ const CONTROL_CHAR_MAP = {  // see styles.scss
 abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> {
   readonly el :HTMLDivElement
   protected readonly out :HTMLDivElement
-  private _curLine :HTMLDivElement
-  protected get curLine() { return this._curLine }
-  private curLineOuter :HTMLDivElement
-  private _countInLine :number = 0
-  protected get countInLine() { return this._countInLine }
+  private _curRxLine :HTMLDivElement|null = null
+  protected get curRxLine() :HTMLDivElement {
+    if (this._curRxLine==null) this._curRxLine = this._newLine('rx')
+    return this._curRxLine
+  }
+  private _countInRxLine :number = 0
+  protected get countInRxLine() { return this._countInRxLine }
   constructor() {
     this.out = safeCastElement(HTMLDivElement, <div class="d-flex flex-column"></div>)
-    this.el = safeCastElement(HTMLDivElement, <div class="border rounded p-2 max-vh-50 overflow-auto">{this.out}</div>);
-    [this.curLineOuter, this._curLine] = this.makeNewLine()
+    this.el = safeCastElement(HTMLDivElement, <div class="border rounded p-2 max-vh-50 overflow-auto">{this.out}</div>)
   }
-  private makeNewLine() :[HTMLDivElement, HTMLDivElement] {
-    const l = safeCastElement(HTMLDivElement,
+  private _newLine(type :'rx'|'tx') :HTMLDivElement {
+    const line = safeCastElement(HTMLDivElement,
       <div class="white-space-pre font-monospace text-stroke-body flex-grow-1"></div>)
-    return [
-      safeCastElement(HTMLDivElement,
-        <div class="d-flex flex-nowrap"><div class="pe-2"><i class="text-info bi-box-arrow-in-down-right"/></div>{l}</div>), l ]
-  }
-  protected newLine() {
-    // if the count is zero here, then the line is empty, no sense in making a new line...
-    if (!this._countInLine) console.warn('newLine shouldn\'t be called when count is 0');
-    [this.curLineOuter, this._curLine] = this.makeNewLine()
-    this.out.appendChild(this.curLineOuter)
-    this._countInLine = 0
+    const icon = type=='rx'
+      ? <i class="text-info bi-box-arrow-in-down-right"/>
+      : <i class="text-primary bi-box-arrow-up-right"/>
+    this.out.appendChild(<div class="d-flex flex-nowrap"><div class="pe-2">{icon}</div>{line}</div>)
     //TODO: Trim output size
+    return line
   }
-  appendRx(items :U) :void {
-    for(const item of items) {
-      this._countInLine++
-      this.appendRxOne(item)
+  protected newRxLine() :HTMLElement {
+    if (!this._countInRxLine) {
+      console.warn('newLine shouldn\'t be called when count is 0')
+      return this.curRxLine  // no sense in making a new line
     }
-    //TODO: Display sent lines as well?
+    this._countInRxLine = 0
+    return this._curRxLine = this._newLine('rx')
+  }
+  protected newTxLine() :HTMLElement { return this._newLine('tx') }
+  appendRx(items :U) {
+    for(const item of items) {
+      this.appendRxOne(item)
+      this._countInRxLine++
+    }
     //TODO: scroll to bottom (unless user has scrolled elsewhere)
   }
+  abstract appendTx(items :U) :void  //TODO: use me
   protected abstract appendRxOne(item :T) :void
-  clear() { this.out.replaceChildren() }
+  clear() {
+    this.out.replaceChildren()
+    this._curRxLine = null
+    this._countInRxLine = 0
+  }
 }
 
 export class TextOutput extends OutputBox<string, string> {
-  private prevCharWasCr :boolean = false
-  protected override appendRxOne(item :string) :void {
-    const cp = item.codePointAt(0)??0
-    if ( this.prevCharWasCr && cp != 0x0A ) this.newLine()  // Anything other than LF after CR: treat CR as NL
-    //TODO Later: Tab characters aren't correctly aligned
-    this.curLine.appendChild( cp in CONTROL_CHAR_MAP
+  private renderCodePoint(cp :number) :Node {
+    return cp in CONTROL_CHAR_MAP
       ? <span class={`non-printable non-printable-${CONTROL_CHAR_MAP[cp as keyof typeof CONTROL_CHAR_MAP]}`}>{
         cp == 0x20 ? ' ' : cp == 0x09 ? '\t' : '' }</span>
       : cp == 0xFFFD ? <i class="non-printable bi-question-diamond-fill"/>
-        : document.createTextNode(item) )
-    if ( cp == 0x0A ) this.newLine()  // LF means NL, as in CRLF or plain LF (plain CR is handled above)
+        : document.createTextNode(String.fromCodePoint(cp))
+  }
+  private prevCharWasCr :boolean = false
+  private nextLineIsNew :boolean = false
+  protected override appendRxOne(item :string) :void {
+    const cp = item.codePointAt(0)??0
+    if ( this.prevCharWasCr && cp != 0x0A  // Anything other than LF after CR: treat CR as NL
+      || this.nextLineIsNew ) this.newRxLine()
+    this.nextLineIsNew = cp == 0x0A   // LF means NL, as in CRLF or plain LF (plain CR is handled above)
     this.prevCharWasCr = cp == 0x0D
+    //TODO Later: Tab characters aren't correctly aligned
+    this.curRxLine.appendChild(this.renderCodePoint(cp))
     //TODO: Color lines with "error"/"warn"/"fatal"/"critical" etc?
+  }
+  override appendTx(items: string) {
+    // we can safely assume a single line is sent at a time so we don't need line splitting
+    const txLine = this.newTxLine()
+    for(const item of items)
+      txLine.appendChild(this.renderCodePoint(item.codePointAt(0)??0))
   }
 }
 
@@ -89,8 +109,22 @@ export class BinaryOutput extends OutputBox<number, Uint8Array> {
     this.out.classList.add('flex-wrap','column-gap-4')
   }
   protected override appendRxOne(item :number) :void {
-    if (this.countInLine>1) this.curLine.innerText += ' '
-    this.curLine.innerText += item.toString(16).padStart(2,'0')
-    if (this.countInLine>=8) this.newLine()
+    // count is incremented *after* every call
+    if (this.countInRxLine>7) this.newRxLine()  // resets count to 0
+    if (this.countInRxLine) this.curRxLine.innerText += ' '
+    this.curRxLine.innerText += item.toString(16).padStart(2,'0')
+  }
+  override appendTx(items: Uint8Array) {
+    let countInTxLine = 0
+    let curTxLine :HTMLElement|null = null
+    for(const item of items) {
+      if (curTxLine==null) curTxLine = this.newTxLine()
+      if (countInTxLine) curTxLine.innerText += ' '
+      curTxLine.innerText += item.toString(16).padStart(2,'0')
+      if (++countInTxLine>8) {
+        countInTxLine = 0
+        curTxLine = null
+      }
+    }
   }
 }
