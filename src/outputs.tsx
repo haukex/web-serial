@@ -124,7 +124,6 @@ export class TextOutput extends OutputBox<string, string> {
     if ( thisLineIsNew || nextLineWillBeNew ) {
       this.curRxLine.normalize()
       const line = this.curRxLine.innerText
-      console.debug(JSON.stringify(line))
       if (line.search( /\b(?:critical|fatal)\b/i )>=0)
         this.curRxLine.classList.add('text-danger','fw-bold')
       else if (line.search( /\b(?:error)\b/i )>=0)
