@@ -25,6 +25,8 @@ const CONTROL_CHAR_MAP = {  // see styles.scss
   0x18: 'can', 0x19: 'em',  0x1a: 'sub', 0x1b: 'esc', 0x1c: 'fs',  0x1d: 'gs',  0x1e: 'rs',  0x1f: 'us',
   0x20: 'sp',  0x7f: 'del' } as const
 
+const MAX_OUTPUTS = 1000
+
 abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> {
   readonly el :HTMLDivElement
   protected readonly out :HTMLDivElement
@@ -57,8 +59,9 @@ abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> 
       ? <i class="text-info bi-box-arrow-in-down-right"/>
       : <i class="text-primary bi-box-arrow-up-right"/>
     this.out.appendChild(<div class="d-flex flex-nowrap"><div class="pe-2">{icon}</div>{line}</div>)
+    while(this.out.childElementCount>MAX_OUTPUTS && this.out.firstElementChild)
+      this.out.removeChild(this.out.firstElementChild)
     this.maybeScrollToBottom()
-    //TODO: Trim output size
     return line
   }
   protected newRxLine() :HTMLElement {
