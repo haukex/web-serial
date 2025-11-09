@@ -23,3 +23,5 @@ export function assert(condition: unknown, msg?: string): asserts condition {
 /** Exactly the same as `assert`, but label paranoid checks as such (i.e. they could be removed someday) */
 export function paranoia(condition: unknown, msg?: string): asserts condition {
   if (!condition) throw new Error(msg) }
+
+export const ui8str = (bs :Uint8Array) => Array.prototype.map.call(bs, (b :number) => b.toString(16).padStart(2,'0')).join('')

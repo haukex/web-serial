@@ -17,11 +17,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 import { jsx, jsxFragment, safeCastElement } from './jsx-dom'
+import { BinaryOutput, TextOutput } from './outputs'
+import { BinaryInput, TextInput } from './inputs'
+import { BluetoothUuidStore } from './bt-uuid'
+import { SerialSettings } from './settings'
 import { GlobalContext } from './main'
 import { userInput } from './dialogs'
 import { Collapse } from 'bootstrap'
-
-// spell-checker: ignore BTUUID RFCOMM
+import { ui8str } from './utils'
 
 export function portString(p :SerialPort) :string {
   const inf = p.getInfo()
@@ -32,177 +35,6 @@ export function portString(p :SerialPort) :string {
       ? inf.bluetoothServiceClassId.toString(16).padStart(4,'0') : inf.bluetoothServiceClassId}`
       + ( usb ? ` (${usb})` : '' )
     : usb ?? '(unknown device)'
-}
-
-class SerialSettings {
-  readonly el :HTMLElement
-  readonly btnExpand :HTMLButtonElement
-  private readonly inpBaudRate
-  private readonly dataBits7
-  private readonly dataBits8
-  private readonly stopBits1
-  private readonly stopBits2
-  private readonly selParity
-  private readonly selFlowCtrl
-  private readonly selEncoding
-  constructor(ctx :GlobalContext) {
-    const datalistBaud = safeCastElement(HTMLDataListElement,
-      <datalist id={ctx.genId()}>
-        <option value="921600" />
-        <option value="460800" />
-        <option value="230400" />
-        <option value="115200" />
-        <option value="57600" />
-        <option value="38400" />
-        <option value="19200" />
-        <option value="9600" />
-        <option value="4800" />
-      </datalist>)
-    this.inpBaudRate = safeCastElement(HTMLInputElement,
-      <input class="form-control" list={datalistBaud.id} id={ctx.genId()} type="number" min="1" value="115200"/>)
-    this.dataBits7 = safeCastElement(HTMLInputElement,
-      <input class="form-check-input" type="radio" value="7" name="dataBits" id={ctx.genId()} />)
-    this.dataBits8 = safeCastElement(HTMLInputElement,
-      <input class="form-check-input" type="radio" value="8" name="dataBits" id={ctx.genId()} checked />)
-    this.stopBits1 = safeCastElement(HTMLInputElement,
-      <input class="form-check-input" type="radio" value="1" name="stopBits" id={ctx.genId()} checked />)
-    this.stopBits2 = safeCastElement(HTMLInputElement,
-      <input class="form-check-input" type="radio" value="2" name="stopBits" id={ctx.genId()} />)
-    this.selParity = safeCastElement(HTMLSelectElement,
-      <select class="form-select" id={ctx.genId()}>
-        <option value="none" selected>None</option>
-        <option value="even">Even</option>
-        <option value="odd">Odd</option>
-      </select>)
-    this.selFlowCtrl = safeCastElement(HTMLSelectElement,
-      <select class="form-select" id={ctx.genId()}>
-        <option value="none" selected>None</option>
-        <option value="hardware">Hardware</option>
-      </select>)
-    // In theory I could list a whole lot more Encodings from https://developer.mozilla.org/en-US/docs/Web/API/Encoding_API/Encodings
-    this.selEncoding = safeCastElement(HTMLSelectElement,
-      <select class="form-select" id={ctx.genId()}>
-        <option value="utf-8" selected>UTF-8</option>
-        <option value="windows-1252">CP1252 / Latin-1</option>
-        <option value="utf-16le">UTF-16 (LE)</option>
-        <option value="utf-16be">UTF-16 BE</option>
-      </select>)
-    this.el =
-      <div class="collapse" id={ctx.genId()}>
-        <div class="card card-body gap-2">
-          <div class="alert alert-warning mb-0" role="alert"><i class="bi-exclamation-triangle me-1"/>
-            Note that serial port settings will not take effect for Bluetooth serial ports!
-            Only <em>Input Encoding</em> will be applied.</div>
-          <div class="input-group">
-            <label class="input-group-text" for={this.inpBaudRate.id}>Baud Rate</label>{this.inpBaudRate}{datalistBaud}</div>
-          <div class="input-group">
-            <span class="input-group-text">Data Bits</span>
-            <div class="input-group-text flex-grow-1 flex-shrink-1"><div class="form-check">
-              {this.dataBits7}<label class="form-check-label" for={this.dataBits7.id}>7</label>
-            </div></div>
-            <div class="input-group-text flex-grow-1 flex-shrink-1"><div class="form-check">
-              {this.dataBits8}<label class="form-check-label" for={this.dataBits8.id}>8</label>
-            </div></div>
-          </div>
-          <div class="input-group">
-            <span class="input-group-text">Stop Bits</span>
-            <div class="input-group-text flex-grow-1 flex-shrink-1"><div class="form-check">
-              {this.stopBits1}<label class="form-check-label" for={this.stopBits1.id}>1</label>
-            </div></div>
-            <div class="input-group-text flex-grow-1 flex-shrink-1"><div class="form-check">
-              {this.stopBits2}<label class="form-check-label" for={this.stopBits2.id}>2</label>
-            </div></div>
-          </div>
-          <div class="input-group"><label class="input-group-text" for={this.selParity.id}>Parity</label>{this.selParity}</div>
-          <div class="input-group"><label class="input-group-text" for={this.selFlowCtrl.id}>Flow Control</label>{this.selFlowCtrl}</div>
-          <div class="input-group"><label class="input-group-text" for={this.selEncoding.id}>Input Encoding</label>{this.selEncoding}</div>
-        </div>
-      </div>
-    this.btnExpand = safeCastElement(HTMLButtonElement,
-      <button class="btn btn-outline-primary" type="button"
-        data-bs-toggle="collapse" data-bs-target={'#'+this.el.id} aria-expanded="false" aria-controls={this.el.id}>
-        <i class="bi-sliders me-1"/> Options</button>)
-    this.el.addEventListener('show.bs.collapse', () => {
-      this.btnExpand.classList.add('btn-primary')
-      this.btnExpand.classList.remove('btn-outline-primary')
-    })
-    this.el.addEventListener('hidden.bs.collapse', () => {
-      this.btnExpand.classList.add('btn-outline-primary')
-      this.btnExpand.classList.remove('btn-primary')
-    })
-  }
-  getSerialOptions() :SerialOptions {
-    return {
-      baudRate: Number.isFinite(this.inpBaudRate.valueAsNumber) && this.inpBaudRate.valueAsNumber>0
-        ? this.inpBaudRate.valueAsNumber : 115200,
-      dataBits: this.dataBits7.checked ? 7 : 8,
-      stopBits: this.stopBits2.checked ? 2 : 1,
-      parity: this.selParity.value==='even' ? 'even' : this.selParity.value==='odd' ? 'odd' : 'none',
-      flowControl: this.selFlowCtrl.value==='hardware' ? 'hardware' : 'none'
-    }
-  }
-  getEncoding() :string {
-    return this.selEncoding.value
-  }
-  setDisabled(disabled :boolean = true) {
-    //this.btnExpand.disabled = disabled
-    this.inpBaudRate.disabled = disabled
-    this.dataBits7.disabled = disabled
-    this.dataBits8.disabled = disabled
-    this.stopBits1.disabled = disabled
-    this.stopBits2.disabled = disabled
-    this.selParity.disabled = disabled
-    this.selFlowCtrl.disabled = disabled
-    this.selEncoding.disabled = disabled
-  }
-  hide() {
-    Collapse.getOrCreateInstance(this.el, { toggle: false }).hide()
-  }
-}
-
-const CONTROL_CHAR_MAP = {
-  0x00: 'nul', 0x01: 'soh', 0x02: 'stx', 0x03: 'etx', 0x04: 'eot', 0x05: 'enq', 0x06: 'ack', 0x07: 'bel',
-  0x08: 'bs',  0x09: 'ht',  0x0a: 'lf',  0x0b: 'vt',  0x0c: 'ff',  0x0d: 'cr',  0x0e: 'ss',  0x0f: 'si',
-  0x10: 'dle', 0x11: 'dc1', 0x12: 'dc2', 0x13: 'dc3', 0x14: 'dc4', 0x15: 'nak', 0x16: 'syn', 0x17: 'etb',
-  0x18: 'can', 0x19: 'em',  0x1a: 'sub', 0x1b: 'esc', 0x1c: 'fs',  0x1d: 'gs',  0x1e: 'rs',  0x1f: 'us',
-  0x20: 'sp',  0x7f: 'del' } as const
-
-const ui8str = (bs :Uint8Array) => Array.prototype.map.call(bs, (b :number) => b.toString(16).padStart(2,'0')).join('')
-
-class BTUUID {
-  /* `allowedBluetoothServiceClassIds` containing a string that is not a UUID apparently causes requestPort()
-   * to completely blow up, so be restrictive. Apparently even the hex digits being uppercase causes a hard crash.
-   * Appears to be this issue: https://issues.chromium.org/issues/328304137 */
-  private static readonly REGEX = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/
-  static readonly BASE = '00000000-0000-1000-8000-00805F9B34FB'
-  static readonly PAT = '^([0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}|(0x)?[0-9a-fA-F]{1,8})$'
-  readonly ctx
-  private _uuids :string[] = []
-  static new(ctx :GlobalContext) :Promise<BTUUID> {
-    return new BTUUID(ctx).initialize()
-  }
-  private constructor(ctx :GlobalContext) { this.ctx = ctx }
-  private async initialize() :Promise<this> {
-    this._uuids = Array.from( new Set(
-      ( await this.ctx.storage.settings.get('bluetoothUuids') ).filter( uuid => uuid.match(BTUUID.REGEX) ) ) )
-    this._uuids.sort()
-    return this
-  }
-  get uuids() :string[] { return this._uuids }
-  async add(uuid :string) :Promise<boolean> {
-    uuid = uuid.trim().toLowerCase()
-    /* Handle short form ID (we'll be flexible and allow up to 8 hex digits) - for example, 0x0003 is RFCOMM:
-     * https://bitbucket.org/bluetooth-SIG/public/src/797ee709/assigned_numbers/uuids/protocol_identifiers.yaml#lines-39
-     * Which, according to the comments here: https://stackoverflow.com/a/21760106 means 00030000-... */
-    if (uuid.match(/^(?:0x)?[0-9a-f]{1,8}$/))  //
-      uuid = ( uuid.startsWith('0x') ? uuid.substring(2) : uuid ).padEnd(8,'0') + BTUUID.BASE.substring(8).toLowerCase()
-    if ( !uuid.match(BTUUID.REGEX) || this._uuids.includes(uuid) ) return false
-    this._uuids.push(uuid)
-    this._uuids.sort()
-    await this.ctx.storage.settings.set('bluetoothUuids', this._uuids)
-    console.debug('UUIDs', this._uuids)
-    return true
-  }
 }
 
 export class SerialInterface {
@@ -340,10 +172,10 @@ export class SerialInterface {
     })
     await this.redrawPorts()
 
-    const btuuid = await BTUUID.new(this.ctx)
+    const btUuid = await BluetoothUuidStore.new(this.ctx)
     this.btnRequest.addEventListener('click', async () => {
       let port :SerialPort|null = null
-      try { port = await navigator.serial.requestPort({ allowedBluetoothServiceClassIds: btuuid.uuids }) }
+      try { port = await navigator.serial.requestPort({ allowedBluetoothServiceClassIds: btUuid.uuids }) }
       catch (ex) {
         if (ex instanceof DOMException && ex.name === 'NotFoundError') {/* user canceled, ignore */}
         else if (ex instanceof DOMException && ex.name === 'SecurityError') { this.securityError(ex) }
@@ -353,10 +185,10 @@ export class SerialInterface {
       if (port!=null) await this.connect(port)
     })
     this.btnAddBlue.addEventListener('click', async () =>
-      btuuid.add( (await userInput(this.ctx, {
+      btUuid.add( (await userInput(this.ctx, {
         title: <><i class="bi-bluetooth me-1"/> Add custom Bluetooth Service Class ID</>,
-        message: btuuid.uuids.length ? <div>Already defined:<ul>{btuuid.uuids.map(uuid => <li>{uuid.toUpperCase()}</li>)}</ul></div> : '',
-        pattern: BTUUID.PAT, placeholder: BTUUID.BASE.toUpperCase() })) ) )
+        message: btUuid.uuids.length ? <div>Already defined:<ul>{btUuid.uuids.map(uuid => <li>{uuid.toUpperCase()}</li>)}</ul></div> : '',
+        pattern: BluetoothUuidStore.PAT, placeholder: BluetoothUuidStore.BASE.toUpperCase() })) ) )
 
     if ('bluetooth' in navigator) {
       this.btnBTScan.addEventListener('click', async () => {
@@ -501,149 +333,4 @@ export class SerialInterface {
 
   }
 
-}
-
-abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> {
-  readonly el :HTMLDivElement
-  protected readonly out :HTMLDivElement
-  constructor() {
-    this.out = safeCastElement(HTMLDivElement, <div class="d-flex flex-column font-monospace text-stroke-body"></div>)
-    this.el = safeCastElement(HTMLDivElement, <div class="border rounded p-2 max-vh-50 overflow-auto">{this.out}</div>)
-    this.curLine = this.makeNewLine()
-  }
-  protected curLine :HTMLDivElement
-  private makeNewLine() { return safeCastElement(HTMLDivElement, <div class="white-space-pre"></div>) }
-  protected newLine() {
-    // if the count is zero here, then the line is empty, no sense in making a new line...
-    if (!this.count) console.warn('newLine shouldn\'t be called when count is 0')
-    this.curLine = this.makeNewLine()
-    this.out.appendChild(this.curLine)
-    this.count = 0
-    //TODO: Trim output size
-  }
-  protected count :number = 0
-  appendRx(items :U) :void {
-    for(const item of items) {
-      this.count++
-      this.appendRxOne(item)
-    }
-    //TODO: Display sent lines as well?
-    //TODO: scroll to bottom (unless user has scrolled elsewhere)
-  }
-  protected abstract appendRxOne(item :T) :void
-  clear() { this.out.replaceChildren() }
-}
-
-class TextOutput extends OutputBox<string, string> {
-  private prevCharWasCr :boolean = false
-  protected override appendRxOne(item :string) :void {
-    const cp = item.codePointAt(0)??0
-    if ( this.prevCharWasCr && cp != 0x0A ) this.newLine()  // Anything other than LF after CR: treat CR as NL
-    //TODO Later: Tab characters aren't correctly aligned
-    this.curLine.appendChild( cp in CONTROL_CHAR_MAP
-      ? <span class={`non-printable non-printable-${CONTROL_CHAR_MAP[cp as keyof typeof CONTROL_CHAR_MAP]}`}>{
-        cp == 0x20 ? ' ' : cp == 0x09 ? '\t' : '' }</span>
-      : cp == 0xFFFD ? <i class="non-printable bi-question-diamond-fill"/>
-        : document.createTextNode(item) )
-    if ( cp == 0x0A ) this.newLine()  // LF means NL, as in CRLF or plain LF (plain CR is handled above)
-    this.prevCharWasCr = cp == 0x0D
-    //TODO: Color lines with "error"/"warn"/"fatal"/"critical" etc?
-  }
-}
-
-class BinaryOutput extends OutputBox<number, Uint8Array> {
-  constructor() {
-    super()
-    this.out.classList.remove('flex-column')
-    this.out.classList.add('flex-wrap','column-gap-4')
-  }
-  protected override appendRxOne(item :number) :void {
-    if (this.count>1) this.curLine.innerText += ' '
-    this.curLine.innerText += item.toString(16).padStart(2,'0')
-    if (this.count>=8) this.newLine()
-  }
-}
-
-type InputWriter<T extends NonNullable<unknown>> = (data :T) => Promise<void>
-
-abstract class InputBox<T extends NonNullable<unknown>> {
-  readonly el :HTMLFormElement
-  protected readonly inpGrp :HTMLDivElement
-  protected readonly input :HTMLInputElement
-  protected readonly button :HTMLButtonElement
-  private _writer :InputWriter<T>|null = null
-  constructor(ctx :GlobalContext, label :string) {
-    this.button = safeCastElement(HTMLButtonElement,
-      <button type="submit" class="btn btn-outline-primary" id={ctx.genId()} disabled><i class="bi-send me-1"/>
-        <span class="d-none d-md-inline">Send </span>{label}</button>)
-    this.input = safeCastElement(HTMLInputElement,
-      <input class="form-control font-monospace" type="text" aria-describedby={this.button.id}/>)
-    this.inpGrp = safeCastElement(HTMLDivElement, <div class="input-group">{this.input}{this.button}</div>)
-    this.el = safeCastElement(HTMLFormElement, <form>{this.inpGrp}</form>)
-    this.el.addEventListener('submit', async event => {
-      event.preventDefault()
-      if (!this._writer) throw new Error('Attempt to send when no writer set; shouldn\'t happen!')
-      if (!this.el.checkValidity()) return
-      await this._writer(this.getTxData())
-      this.clear()
-    })
-    //TODO: support up arrow key in text boxes
-  }
-  set writer(w :InputWriter<T>|null) {
-    this._writer = w
-    if (!w) {
-      this.clear()
-      this.setDisabled(true)
-    }
-  }
-  setDisabled(disabled :boolean = true) {
-    this.input.readOnly = disabled
-    this.button.disabled = disabled
-  }
-  clear() { this.input.value = '' }
-  protected abstract getTxData() :T
-}
-
-class TextInput extends InputBox<string> {
-  constructor(ctx :GlobalContext) {
-    super(ctx, 'UTF-8')
-    this.input.name = 'transmit-text-input'
-    const dropBtn = safeCastElement(HTMLButtonElement,
-      <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split"
-        data-bs-toggle="dropdown" aria-expanded="false">
-        <span class="visually-hidden">Toggle Dropdown</span>
-      </button>)
-    const dropEol = safeCastElement(HTMLUListElement,
-      <ul class="dropdown-menu">{ ['CRLF','LF','CR','None'].map(e => {
-        const inpRadio = safeCastElement(HTMLInputElement, <input class="form-check-input"
-          type="radio" name="radio-tx-eol" id={ctx.genId()} value={e} checked={e==='CRLF'} />)
-        return <li class="dropdown-item" onclick={()=>inpRadio.click()}><div class="form-check">
-          {inpRadio} <label class="form-check-label" for={inpRadio.id}>{e}</label> </div></li>
-      }) } </ul>)
-    this.inpGrp.insertBefore(dropBtn, this.button)
-    this.inpGrp.insertBefore(dropEol, this.button)
-  }
-  protected override getTxData() :string {
-    let eol
-    switch (new FormData(this.el).get('radio-tx-eol')) {
-      case 'LF': eol = '\n'; break
-      case 'CR': eol = '\r'; break
-      case 'None': eol = ''; break
-      case null: default: eol = '\r\n'
-    }
-    return this.input.value+eol
-  }
-}
-
-class BinaryInput extends InputBox<Uint8Array> {
-  constructor(ctx :GlobalContext) {
-    super(ctx, 'Bytes')
-    this.input.name = 'transmit-bytes-input'
-    this.input.pattern = '^(0x)?([0-9a-fA-F]{2} ?)+$'
-  }
-  protected override getTxData() :Uint8Array {
-    let txt = this.input.value.trim()
-    if (txt.startsWith('0x')) txt = txt.substring(2)
-    return new Uint8Array( txt.toLowerCase().replace(/[^0-9a-f]/g, '').match(/.{1,2}/g)?.map(h => parseInt(h, 16)) ?? [] )
-  }
 }
