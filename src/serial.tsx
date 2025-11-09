@@ -471,10 +471,11 @@ export class SerialInterface {
     const encoder = new TextEncoder()
     const writeToPort = async (data :Uint8Array|string) => {
       if (port.writable==null) throw new Error('write on closed port')
+      if (!data.length) return
       const bytesWriter = port.writable.getWriter()
       await bytesWriter.write( typeof data === 'string' ? encoder.encode(data) : data )
       bytesWriter.releaseLock()
-      if (typeof data === 'string') console.debug('wrote string', data)
+      if (typeof data === 'string') console.debug('wrote string', JSON.stringify(data))
       else console.debug('wrote bytes', ui8str(data))
     }
     this.textInput.writer = writeToPort
@@ -566,31 +567,27 @@ class BinaryOutput extends OutputBox<number, Uint8Array> {
 type InputWriter<T extends NonNullable<unknown>> = (data :T) => Promise<void>
 
 abstract class InputBox<T extends NonNullable<unknown>> {
-  readonly el
+  readonly el :HTMLFormElement
   protected readonly inpGrp :HTMLDivElement
   protected readonly input :HTMLInputElement
   protected readonly button :HTMLButtonElement
   private _writer :InputWriter<T>|null = null
   constructor(ctx :GlobalContext, label :string) {
     this.button = safeCastElement(HTMLButtonElement,
-      <button type="button" class="btn btn-outline-primary" id={ctx.genId()} disabled><i class="bi-send me-1"/> {label}</button>)
+      <button type="submit" class="btn btn-outline-primary" id={ctx.genId()} disabled><i class="bi-send me-1"/>
+        <span class="d-none d-md-inline">Send </span>{label}</button>)
     this.input = safeCastElement(HTMLInputElement,
       <input class="form-control font-monospace" type="text" aria-describedby={this.button.id}/>)
     this.inpGrp = safeCastElement(HTMLDivElement, <div class="input-group">{this.input}{this.button}</div>)
     this.el = safeCastElement(HTMLFormElement, <form>{this.inpGrp}</form>)
-    this.button.addEventListener('click', () => this.transmit())
-    this.el.addEventListener('submit', event => {
+    this.el.addEventListener('submit', async event => {
       event.preventDefault()
-      return this.transmit()
-    })
-    //TODO: support up arrow key in text boxes
-  }
-  private async transmit() {
-    if (this._writer) {
+      if (!this._writer) throw new Error('Attempt to send when no writer set; shouldn\'t happen!')
+      if (!this.el.checkValidity()) return
       await this._writer(this.getTxData())
       this.clear()
-    }
-    else throw new Error('Attempt to send when no writer set; shouldn\'t happen!')
+    })
+    //TODO: support up arrow key in text boxes
   }
   set writer(w :InputWriter<T>|null) {
     this._writer = w
@@ -608,25 +605,31 @@ abstract class InputBox<T extends NonNullable<unknown>> {
 }
 
 class TextInput extends InputBox<string> {
-  private readonly selEol :HTMLSelectElement
   constructor(ctx :GlobalContext) {
     super(ctx, 'UTF-8')
     this.input.name = 'transmit-text-input'
-    this.selEol = safeCastElement(HTMLSelectElement,
-      <select class="form-select flex-grow-0 flex-shrink-0" style="min-width: 5.3rem" name="transmit-text-eol">
-        <option value="CRLF" selected>CRLF</option>
-        <option value="LF">LF</option>
-        <option value="CR">CR</option>
-        <option value="none">None</option>
-      </select>)
-    this.inpGrp.insertBefore(this.selEol, this.button)
+    const dropBtn = safeCastElement(HTMLButtonElement,
+      <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split"
+        data-bs-toggle="dropdown" aria-expanded="false">
+        <span class="visually-hidden">Toggle Dropdown</span>
+      </button>)
+    const dropEol = safeCastElement(HTMLUListElement,
+      <ul class="dropdown-menu">{ ['CRLF','LF','CR','None'].map(e => {
+        const inpRadio = safeCastElement(HTMLInputElement, <input class="form-check-input"
+          type="radio" name="radio-tx-eol" id={ctx.genId()} value={e} checked={e==='CRLF'} />)
+        return <li class="dropdown-item" onclick={()=>inpRadio.click()}><div class="form-check">
+          {inpRadio} <label class="form-check-label" for={inpRadio.id}>{e}</label> </div></li>
+      }) } </ul>)
+    this.inpGrp.insertBefore(dropBtn, this.button)
+    this.inpGrp.insertBefore(dropEol, this.button)
   }
   protected override getTxData() :string {
-    let eol = '\r\n'
-    switch (this.selEol.value) {
+    let eol
+    switch (new FormData(this.el).get('radio-tx-eol')) {
       case 'LF': eol = '\n'; break
       case 'CR': eol = '\r'; break
-      case 'none': eol = ''; break
+      case 'None': eol = ''; break
+      case null: default: eol = '\r\n'
     }
     return this.input.value+eol
   }
