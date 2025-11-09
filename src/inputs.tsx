@@ -19,6 +19,7 @@
 import { jsx, safeCastElement } from './jsx-dom'
 import { GlobalContext } from './main'
 import { Dropdown } from 'bootstrap'
+import { str2ui8 } from './utils'
 
 type InputWriter<T extends NonNullable<unknown>> = (data :T) => Promise<void>
 
@@ -135,9 +136,5 @@ export class BinaryInput extends InputBox<Uint8Array> {
     this.input.name = 'transmit-bytes-input'
     this.input.pattern = '^(0x)?([0-9a-fA-F]{2} ?)+$'
   }
-  protected override getTxData() :Uint8Array {
-    let txt = this.input.value.trim()
-    if (txt.startsWith('0x')) txt = txt.substring(2)
-    return new Uint8Array( txt.toLowerCase().replace(/[^0-9a-f]/g, '').match(/.{1,2}/g)?.map(h => parseInt(h, 16)) ?? [] )
-  }
+  protected override getTxData() :Uint8Array { return str2ui8(this.input.value) }
 }

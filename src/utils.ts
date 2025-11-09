@@ -25,3 +25,11 @@ export function paranoia(condition: unknown, msg?: string): asserts condition {
   if (!condition) throw new Error(msg) }
 
 export const ui8str = (bs :Uint8Array) => Array.prototype.map.call(bs, (b :number) => b.toString(16).padStart(2,'0')).join('')
+
+export const cleanHexStr = (txt :string) => {
+  txt = txt.trim()
+  if (txt.startsWith('0x')) txt = txt.substring(2)
+  return txt.toLowerCase().replaceAll(/[^0-9a-f]/g, '')
+}
+
+export const str2ui8 = (txt :string) => new Uint8Array( cleanHexStr(txt).match(/.{1,2}/g)?.map(h => parseInt(h, 16)) ?? [] )

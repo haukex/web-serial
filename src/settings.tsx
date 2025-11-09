@@ -20,6 +20,8 @@ import { jsx, safeCastElement } from './jsx-dom'
 import { GlobalContext } from './main'
 import { Collapse } from 'bootstrap'
 
+//TODO Later: Could save serial and other settings in storage (encoding, display non-printable, line endings, ...)
+
 export class SerialSettings {
   readonly el :HTMLElement
   readonly btnExpand :HTMLButtonElement

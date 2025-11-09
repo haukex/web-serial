@@ -21,6 +21,7 @@ import { BinaryOutput, TextOutput } from './outputs'
 import { BinaryInput, TextInput } from './inputs'
 import { BluetoothUuidStore } from './bt-uuid'
 import { SerialSettings } from './settings'
+import { BinaryTools } from './bin-tools'
 import { GlobalContext } from './main'
 import { userInput } from './dialogs'
 import { Collapse } from 'bootstrap'
@@ -102,7 +103,7 @@ export class SerialInterface {
     const panelText = <div class="tab-pane fade show active" id={ctx.genId()} role="tabpanel">
       <div class="d-flex flex-column gap-2">{this.textOutput.el}{this.textInput.el}{this.textOutput.cbShowNonPrintable}</div></div>
     const panelBinary = <div class="tab-pane fade" id={ctx.genId()} role="tabpanel">
-      <div class="d-flex flex-column gap-2">{this.binaryOutput.el}{this.binaryInput.el}</div></div>
+      <div class="d-flex flex-column gap-2">{this.binaryOutput.el}{this.binaryInput.el}{new BinaryTools(this.binaryOutput.el).el}</div></div>
     const tabText = <button type="button" role="tab" class="nav-link active" id={ctx.genId()}
       data-bs-toggle="tab" data-bs-target={'#'+panelText.id} aria-controls={panelText.id} aria-selected="true">Text</button>
     const tabBinary = <button type="button" role="tab" class="nav-link" id={ctx.genId()}
