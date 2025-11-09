@@ -100,10 +100,9 @@ export class TextOutput extends OutputBox<string, string> {
   constructor(ctx :GlobalContext) {
     super(ctx, MAX_OUTPUTS)
     const cb = safeCastElement(HTMLInputElement,
-      <input class="form-check-input" type="checkbox" id={ctx.genId()} checked />)
+      <input class="form-check-input" type="checkbox" id={ctx.genId()} />)
     this.cbShowNonPrintable = <div class="form-check form-switch">{cb}
       <label class="form-check-label" for={cb.id}>Show non-printable characters</label></div>
-    this.out.setAttribute('data-show-non-printable','data-show-non-printable')
     cb.addEventListener('change', () => {
       if (cb.checked) this.out.setAttribute('data-show-non-printable','data-show-non-printable')
       else this.out.removeAttribute('data-show-non-printable') })
