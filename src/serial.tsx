@@ -96,28 +96,22 @@ export class SerialInterface {
     this.binaryOutput = new BinaryOutput()
     this.binaryInput = new BinaryInput(ctx)
 
-    const idNavTextTab = ctx.genId()
-    const idNavText = ctx.genId()
-    const idNavBinaryTag = ctx.genId()
-    const idNavBinary = ctx.genId()
+    const panelText = <div class="tab-pane fade show active" id={ctx.genId()} role="tabpanel">
+      <div class="d-flex flex-column gap-2">{this.textOutput.el}{this.textInput.el}</div></div>
+    const panelBinary = <div class="tab-pane fade" id={ctx.genId()} role="tabpanel">
+      <div class="d-flex flex-column gap-2">{this.binaryOutput.el}{this.binaryInput.el}</div></div>
+    const tabText = <button type="button" role="tab" class="nav-link active" id={ctx.genId()}
+      data-bs-toggle="tab" data-bs-target={'#'+panelText.id} aria-controls={panelText.id} aria-selected="true">Text</button>
+    const tabBinary = <button type="button" role="tab" class="nav-link" id={ctx.genId()}
+      data-bs-toggle="tab" data-bs-target={'#'+panelBinary.id} aria-controls={panelBinary.id} aria-selected="false">Binary</button>
+    panelText.setAttribute('aria-labelledby', tabText.id)
+    panelBinary.setAttribute('aria-labelledby', tabBinary.id)
+    tabText.addEventListener('shown.bs.tab', () => this.textOutput.shown())
+    tabBinary.addEventListener('shown.bs.tab', () => this.binaryOutput.shown())
     this.divConnected = safeCastElement(HTMLDivElement,
       <div class="container border rounded p-3 collapse">
-        <nav>
-          <div class="nav nav-tabs mb-2" role="tablist">
-            <button type="button" role="tab" class="nav-link active" id={idNavTextTab}
-              data-bs-toggle="tab" data-bs-target={'#'+idNavText} aria-controls={idNavText} aria-selected="true">Text</button>
-            <button type="button" role="tab" class="nav-link" id={idNavBinaryTag}
-              data-bs-toggle="tab" data-bs-target={'#'+idNavBinary} aria-controls={idNavBinary} aria-selected="false">Binary</button>
-          </div>
-        </nav>
-        <div class="tab-content">
-          <div class="tab-pane fade show active" id={idNavText} role="tabpanel" aria-labelledby={idNavTextTab} tabindex="0">
-            <div class="d-flex flex-column gap-2">{this.textOutput.el}{this.textInput.el}</div>
-          </div>
-          <div class="tab-pane fade" id={idNavBinary} role="tabpanel" aria-labelledby={idNavBinaryTag} tabindex="0">
-            <div class="d-flex flex-column gap-2">{this.binaryOutput.el}{this.binaryInput.el}</div>
-          </div>
-        </div>
+        <nav><div class="nav nav-tabs mb-2" role="tablist">{tabText}{tabBinary}</div></nav>
+        <div class="tab-content">{panelText}{panelBinary}</div>
       </div>)
     this.el = 'serial' in navigator
       ? <div class="d-flex flex-column gap-3">

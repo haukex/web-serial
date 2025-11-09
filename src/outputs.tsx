@@ -35,10 +35,21 @@ abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> 
   }
   private _countInRxLine :number = 0
   protected get countInRxLine() { return this._countInRxLine }
+  private scrolledToBottom = true
   constructor() {
-    this.out = safeCastElement(HTMLDivElement, <div class="d-flex flex-column"></div>)
+    this.out = safeCastElement(HTMLDivElement, <div class="d-flex flex-column" tabindex="0"></div>)
     this.el = safeCastElement(HTMLDivElement, <div class="border rounded p-2 max-vh-50 overflow-auto">{this.out}</div>)
+    /* NOTE scrollend is not implemented in Safari, but neither is the Web Serial API, so it should be fine.
+     * https://developer.mozilla.org/en-US/docs/Web/API/Element/scrollend_event#browser_compatibility */
+    this.el.addEventListener('scrollend', () =>
+      this.scrolledToBottom = this.el.scrollHeight - this.el.clientHeight - this.el.scrollTop < 1 )
   }
+  private maybeScrollToBottom() {
+    if (this.scrolledToBottom)
+      // Note this will fire the scrollend handler too, but that's ok, since its result will be `true` anyway.
+      setTimeout(() => this.el.scrollTop = this.el.scrollHeight, 1)  // wait for any newly added element to be rendered
+  }
+  shown() { this.maybeScrollToBottom() }
   private _newLine(type :'rx'|'tx') :HTMLDivElement {
     const line = safeCastElement(HTMLDivElement,
       <div class="white-space-pre font-monospace text-stroke-body flex-grow-1"></div>)
@@ -46,6 +57,7 @@ abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> 
       ? <i class="text-info bi-box-arrow-in-down-right"/>
       : <i class="text-primary bi-box-arrow-up-right"/>
     this.out.appendChild(<div class="d-flex flex-nowrap"><div class="pe-2">{icon}</div>{line}</div>)
+    this.maybeScrollToBottom()
     //TODO: Trim output size
     return line
   }
@@ -63,9 +75,8 @@ abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> 
       this.appendRxOne(item)
       this._countInRxLine++
     }
-    //TODO: scroll to bottom (unless user has scrolled elsewhere)
   }
-  abstract appendTx(items :U) :void  //TODO: use me
+  abstract appendTx(items :U) :void
   protected abstract appendRxOne(item :T) :void
   clear() {
     this.out.replaceChildren()
