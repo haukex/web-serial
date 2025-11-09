@@ -26,13 +26,14 @@ const CONTROL_CHAR_MAP = {  // see styles.scss
   0x18: 'can', 0x19: 'em',  0x1a: 'sub', 0x1b: 'esc', 0x1c: 'fs',  0x1d: 'gs',  0x1e: 'rs',  0x1f: 'us',
   0x20: 'sp',  0x7f: 'del' } as const
 
-//TODO Later: When the output divs are large, switching tabs produces "[Violation] Forced reflow while executing JavaScript took <N>ms"
-
-const MAX_OUTPUTS = 1000
+/* When the output divs are large, switching tabs produces "[Violation] Forced reflow while executing JavaScript took <N>ms"
+ * so for now, I've reduced the scroll-back buffer size here: */
+const MAX_OUTPUTS = 100
 
 abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> {
   readonly el :HTMLDivElement
   readonly ctx :GlobalContext
+  readonly maxOutputs :number
   protected readonly out :HTMLDivElement
   private _curRxLine :HTMLDivElement|null = null
   protected get curRxLine() :HTMLDivElement {
@@ -42,8 +43,9 @@ abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> 
   private _countInRxLine :number = 0
   protected get countInRxLine() { return this._countInRxLine }
   private scrolledToBottom = true
-  constructor(ctx :GlobalContext) {
+  constructor(ctx :GlobalContext, maxOutputs :number) {
     this.ctx = ctx
+    this.maxOutputs = maxOutputs
     this.out = safeCastElement(HTMLDivElement, <div class="d-flex flex-column" tabindex="0"></div>)
     this.el = safeCastElement(HTMLDivElement, <div class="border rounded p-2 max-vh-50 overflow-auto">{this.out}</div>)
     /* NOTE scrollend is not implemented in Safari, but neither is the Web Serial API, so it should be fine.
@@ -64,7 +66,7 @@ abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> 
       ? <i class="text-info bi-box-arrow-in-down-right"/>
       : <i class="text-primary bi-box-arrow-up-right"/>
     this.out.appendChild(<div class="d-flex flex-row flex-nowrap"><div class="pe-2">{icon}</div>{line}</div>)
-    while(this.out.childElementCount>MAX_OUTPUTS && this.out.firstElementChild)
+    while(this.out.childElementCount>this.maxOutputs && this.out.firstElementChild)
       this.out.removeChild(this.out.firstElementChild)
     this.maybeScrollToBottom()
     return line
@@ -94,6 +96,9 @@ abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> 
 }
 
 export class TextOutput extends OutputBox<string, string> {
+  constructor(ctx :GlobalContext) {
+    super(ctx, MAX_OUTPUTS)
+  }
   private renderCodePoint(cp :number) :Node {
     return cp in CONTROL_CHAR_MAP
       ? <span class={`non-printable non-printable-${CONTROL_CHAR_MAP[cp as keyof typeof CONTROL_CHAR_MAP]}`}>{
@@ -128,7 +133,7 @@ export class TextOutput extends OutputBox<string, string> {
 
 export class BinaryOutput extends OutputBox<number, Uint8Array> {
   constructor(ctx :GlobalContext) {
-    super(ctx)
+    super(ctx, MAX_OUTPUTS*10)  // binary takes up a lot more space than text lines, so allow more outputs
     this.out.classList.remove('flex-column')
     this.out.classList.add('flex-wrap','column-gap-4')
   }
