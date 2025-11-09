@@ -31,7 +31,8 @@ abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> 
   private _curLine :HTMLDivElement
   protected get curLine() { return this._curLine }
   private curLineOuter :HTMLDivElement
-  protected countInLine :number = 0
+  private _countInLine :number = 0
+  protected get countInLine() { return this._countInLine }
   constructor() {
     this.out = safeCastElement(HTMLDivElement, <div class="d-flex flex-column"></div>)
     this.el = safeCastElement(HTMLDivElement, <div class="border rounded p-2 max-vh-50 overflow-auto">{this.out}</div>);
@@ -46,15 +47,15 @@ abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> 
   }
   protected newLine() {
     // if the count is zero here, then the line is empty, no sense in making a new line...
-    if (!this.countInLine) console.warn('newLine shouldn\'t be called when count is 0');
+    if (!this._countInLine) console.warn('newLine shouldn\'t be called when count is 0');
     [this.curLineOuter, this._curLine] = this.makeNewLine()
     this.out.appendChild(this.curLineOuter)
-    this.countInLine = 0
+    this._countInLine = 0
     //TODO: Trim output size
   }
   appendRx(items :U) :void {
     for(const item of items) {
-      this.countInLine++
+      this._countInLine++
       this.appendRxOne(item)
     }
     //TODO: Display sent lines as well?
