@@ -18,7 +18,7 @@
  */
 import { jsx, safeCastElement } from './jsx-dom'
 
-const CONTROL_CHAR_MAP = {
+const CONTROL_CHAR_MAP = {  // see styles.scss
   0x00: 'nul', 0x01: 'soh', 0x02: 'stx', 0x03: 'etx', 0x04: 'eot', 0x05: 'enq', 0x06: 'ack', 0x07: 'bel',
   0x08: 'bs',  0x09: 'ht',  0x0a: 'lf',  0x0b: 'vt',  0x0c: 'ff',  0x0d: 'cr',  0x0e: 'ss',  0x0f: 'si',
   0x10: 'dle', 0x11: 'dc1', 0x12: 'dc2', 0x13: 'dc3', 0x14: 'dc4', 0x15: 'nak', 0x16: 'syn', 0x17: 'etb',
@@ -28,25 +28,27 @@ const CONTROL_CHAR_MAP = {
 abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> {
   readonly el :HTMLDivElement
   protected readonly out :HTMLDivElement
+  protected curLine :HTMLDivElement
+  protected countInLine :number = 0
   constructor() {
-    this.out = safeCastElement(HTMLDivElement, <div class="d-flex flex-column font-monospace text-stroke-body"></div>)
+    this.out = safeCastElement(HTMLDivElement, <div class="d-flex flex-column"></div>)
     this.el = safeCastElement(HTMLDivElement, <div class="border rounded p-2 max-vh-50 overflow-auto">{this.out}</div>)
     this.curLine = this.makeNewLine()
   }
-  protected curLine :HTMLDivElement
-  private makeNewLine() { return safeCastElement(HTMLDivElement, <div class="white-space-pre"></div>) }
+  private makeNewLine() {
+    return safeCastElement(HTMLDivElement, <div class="white-space-pre font-monospace text-stroke-body"></div>)
+  }
   protected newLine() {
     // if the count is zero here, then the line is empty, no sense in making a new line...
-    if (!this.count) console.warn('newLine shouldn\'t be called when count is 0')
+    if (!this.countInLine) console.warn('newLine shouldn\'t be called when count is 0')
     this.curLine = this.makeNewLine()
     this.out.appendChild(this.curLine)
-    this.count = 0
+    this.countInLine = 0
     //TODO: Trim output size
   }
-  protected count :number = 0
   appendRx(items :U) :void {
     for(const item of items) {
-      this.count++
+      this.countInLine++
       this.appendRxOne(item)
     }
     //TODO: Display sent lines as well?
@@ -80,8 +82,8 @@ export class BinaryOutput extends OutputBox<number, Uint8Array> {
     this.out.classList.add('flex-wrap','column-gap-4')
   }
   protected override appendRxOne(item :number) :void {
-    if (this.count>1) this.curLine.innerText += ' '
+    if (this.countInLine>1) this.curLine.innerText += ' '
     this.curLine.innerText += item.toString(16).padStart(2,'0')
-    if (this.count>=8) this.newLine()
+    if (this.countInLine>=8) this.newLine()
   }
 }
