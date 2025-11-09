@@ -119,19 +119,39 @@ export class TextOutput extends OutputBox<string, string> {
   private nextLineIsNew :boolean = false
   protected override appendRxOne(item :string) :void {
     const cp = item.codePointAt(0)??0
-    if ( this.prevCharWasCr && cp != 0x0A  // Anything other than LF after CR: treat CR as NL
-      || this.nextLineIsNew ) this.newRxLine()
-    this.nextLineIsNew = cp == 0x0A   // LF means NL, as in CRLF or plain LF (plain CR is handled above)
+    const thisLineIsNew = this.prevCharWasCr && cp != 0x0A  // Anything other than LF after CR: treat CR as NL
+    const nextLineWillBeNew = cp == 0x0A    // LF means NL, as in CRLF or plain LF (plain CR is handled above)
+    // handle the completion of a line
+    if ( thisLineIsNew || nextLineWillBeNew ) {
+      this.curRxLine.normalize()
+      const line = this.curRxLine.innerText
+      console.debug(JSON.stringify(line))
+      if (line.search( /\b(?:critical|fatal)\b/i )>=0)
+        this.curRxLine.classList.add('text-danger','fw-bold')
+      else if (line.search( /\b(?:error)\b/i )>=0)
+        this.curRxLine.classList.add('text-danger')
+      else if (line.search( /\b(?:warn(?:ing)?)\b/i )>=0)
+        this.curRxLine.classList.add('text-warning')
+      else if (line.search( /\b(?:notice)\b/i )>=0)
+        this.curRxLine.classList.add('text-info')
+      else if (line.search( /\b(?:success|good)\b/i )>=0)
+        this.curRxLine.classList.add('text-success')
+    }
+    // handle generation of a new line
+    if ( thisLineIsNew || this.nextLineIsNew ) this.newRxLine()
+    // update state
+    this.nextLineIsNew = nextLineWillBeNew
     this.prevCharWasCr = cp == 0x0D
+    // add the character
     //TODO Later: Tab characters aren't correctly aligned
     this.curRxLine.appendChild(this.renderCodePoint(cp))
-    //TODO: Color lines with "error"/"warn"/"fatal"/"critical" etc?
   }
   override appendTx(items: string) {
     // we can safely assume a single line is sent at a time so we don't need line splitting
     const txLine = this.newTxLine()
     for(const item of items)
       txLine.appendChild(this.renderCodePoint(item.codePointAt(0)??0))
+    txLine.normalize()
   }
   override clear() {
     super.clear()

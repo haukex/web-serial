@@ -112,7 +112,7 @@ export class SerialInterface {
     tabText.addEventListener('shown.bs.tab', () => {
       this.textOutput.shown()
       ctx.scrollTo(panelText)
-  })
+    })
     tabBinary.addEventListener('shown.bs.tab', () => {
       this.binaryOutput.shown()
       ctx.scrollTo(panelBinary)
