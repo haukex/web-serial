@@ -119,6 +119,11 @@ export class TextOutput extends OutputBox<string, string> {
     for(const item of items)
       txLine.appendChild(this.renderCodePoint(item.codePointAt(0)??0))
   }
+  override clear() {
+    super.clear()
+    this.prevCharWasCr = false
+    this.nextLineIsNew = false
+  }
 }
 
 export class BinaryOutput extends OutputBox<number, Uint8Array> {
@@ -127,17 +132,23 @@ export class BinaryOutput extends OutputBox<number, Uint8Array> {
     this.out.classList.remove('flex-column')
     this.out.classList.add('flex-wrap','column-gap-4')
   }
+  private justTransmitted = false
   protected override appendRxOne(item :number) :void {
     // count is incremented *after* every call
-    if (this.countInRxLine>7) this.newRxLine()  // resets count to 0
+    if (this.countInRxLine>7 || this.justTransmitted) this.newRxLine()  // resets count to 0
+    this.justTransmitted = false
     if (this.countInRxLine) this.curRxLine.innerText += ' '
     this.curRxLine.innerText += item.toString(16).padStart(2,'0')
+    this.curRxLine.style.width = '23ch'  // 8*2 + 7
   }
   override appendTx(items: Uint8Array) {
     let countInTxLine = 0
     let curTxLine :HTMLElement|null = null
     for(const item of items) {
-      if (curTxLine==null) curTxLine = this.newTxLine()
+      if (curTxLine==null) {
+        curTxLine = this.newTxLine()
+        curTxLine.style.width = '23ch'
+      }
       if (countInTxLine) curTxLine.innerText += ' '
       curTxLine.innerText += item.toString(16).padStart(2,'0')
       if (++countInTxLine>8) {
@@ -145,5 +156,10 @@ export class BinaryOutput extends OutputBox<number, Uint8Array> {
         curTxLine = null
       }
     }
+    this.justTransmitted = true
+  }
+  override clear() {
+    super.clear()
+    this.justTransmitted = false
   }
 }
