@@ -83,19 +83,19 @@ export class SerialSettings {
             <label class="input-group-text" for={this.inpBaudRate.id}>Baud Rate</label>{this.inpBaudRate}{datalistBaud}</div>
           <div class="input-group">
             <span class="input-group-text">Data Bits</span>
-            <div class="input-group-text flex-grow-1 flex-shrink-1"><div class="form-check">
+            <div class="input-group-text flex-grow-1 flex-shrink-1" onclick={()=>this.dataBits7.click()}><div class="form-check">
               {this.dataBits7}<label class="form-check-label" for={this.dataBits7.id}>7</label>
             </div></div>
-            <div class="input-group-text flex-grow-1 flex-shrink-1"><div class="form-check">
+            <div class="input-group-text flex-grow-1 flex-shrink-1" onclick={()=>this.dataBits8.click()}><div class="form-check">
               {this.dataBits8}<label class="form-check-label" for={this.dataBits8.id}>8</label>
             </div></div>
           </div>
           <div class="input-group">
             <span class="input-group-text">Stop Bits</span>
-            <div class="input-group-text flex-grow-1 flex-shrink-1"><div class="form-check">
+            <div class="input-group-text flex-grow-1 flex-shrink-1" onclick={()=>this.stopBits1.click()}><div class="form-check">
               {this.stopBits1}<label class="form-check-label" for={this.stopBits1.id}>1</label>
             </div></div>
-            <div class="input-group-text flex-grow-1 flex-shrink-1"><div class="form-check">
+            <div class="input-group-text flex-grow-1 flex-shrink-1" onclick={()=>this.stopBits2.click()}><div class="form-check">
               {this.stopBits2}<label class="form-check-label" for={this.stopBits2.id}>2</label>
             </div></div>
           </div>

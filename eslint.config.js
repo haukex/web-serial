@@ -42,7 +42,6 @@ export default defineConfig([
       },
     ],
     plugins: {
-      // @ts-expect-error Seems to be a false positive?
       '@stylistic': stylistic
     },
     rules: {
