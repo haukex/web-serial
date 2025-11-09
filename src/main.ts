@@ -54,6 +54,14 @@ export class GlobalContext {
     this.footer = htmlFooter
   }
   genId() :string { return `_genId_${this.idCounter++}_` }
+  scrollTo(target :HTMLElement) {
+    setTimeout(() => {  // don't scroll until rendered
+      target.style.setProperty('scroll-margin-top',    `${this.header.getBoundingClientRect().height+5}px`)
+      //target.style.setProperty('scroll-margin-bottom', `${this.footer.getBoundingClientRect().height+5}px`)  // footer is not sticky
+      target.style.setProperty('scroll-margin-bottom', '5px')  // footer is not sticky
+      target.scrollIntoView({ block: 'nearest', behavior: 'auto' })
+    }, 1)
+  }
 }
 
 window.addEventListener('DOMContentLoaded', async () => {

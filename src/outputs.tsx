@@ -17,6 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 import { jsx, safeCastElement } from './jsx-dom'
+import { GlobalContext } from './main'
 
 const CONTROL_CHAR_MAP = {  // see styles.scss
   0x00: 'nul', 0x01: 'soh', 0x02: 'stx', 0x03: 'etx', 0x04: 'eot', 0x05: 'enq', 0x06: 'ack', 0x07: 'bel',
@@ -31,6 +32,7 @@ const MAX_OUTPUTS = 1000
 
 abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> {
   readonly el :HTMLDivElement
+  readonly ctx :GlobalContext
   protected readonly out :HTMLDivElement
   private _curRxLine :HTMLDivElement|null = null
   protected get curRxLine() :HTMLDivElement {
@@ -40,7 +42,8 @@ abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> 
   private _countInRxLine :number = 0
   protected get countInRxLine() { return this._countInRxLine }
   private scrolledToBottom = true
-  constructor() {
+  constructor(ctx :GlobalContext) {
+    this.ctx = ctx
     this.out = safeCastElement(HTMLDivElement, <div class="d-flex flex-column" tabindex="0"></div>)
     this.el = safeCastElement(HTMLDivElement, <div class="border rounded p-2 max-vh-50 overflow-auto">{this.out}</div>)
     /* NOTE scrollend is not implemented in Safari, but neither is the Web Serial API, so it should be fine.
@@ -53,10 +56,7 @@ abstract class OutputBox<T extends NonNullable<unknown>, U extends Iterable<T>> 
       // Note this will fire the scrollend handler too, but that's ok, since its result will be `true` anyway.
       setTimeout(() => this.el.scrollTop = this.el.scrollHeight, 1)  // wait for any newly added element to be rendered
   }
-  shown() {
-    this.el.scrollIntoView()
-    this.maybeScrollToBottom()
-  }
+  shown() { this.maybeScrollToBottom() }
   private _newLine(type :'rx'|'tx') :HTMLDivElement {
     const line = safeCastElement(HTMLDivElement,
       <div class="white-space-pre font-monospace text-stroke-body flex-grow-1"></div>)
@@ -127,8 +127,8 @@ export class TextOutput extends OutputBox<string, string> {
 }
 
 export class BinaryOutput extends OutputBox<number, Uint8Array> {
-  constructor() {
-    super()
+  constructor(ctx :GlobalContext) {
+    super(ctx)
     this.out.classList.remove('flex-column')
     this.out.classList.add('flex-wrap','column-gap-4')
   }
@@ -139,7 +139,7 @@ export class BinaryOutput extends OutputBox<number, Uint8Array> {
     this.justTransmitted = false
     if (this.countInRxLine) this.curRxLine.innerText += ' '
     this.curRxLine.innerText += item.toString(16).padStart(2,'0')
-    this.curRxLine.style.width = '23ch'  // 8*2 + 7
+    this.curRxLine.style.setProperty('width', '23ch')  // 8*2 + 7
   }
   override appendTx(items: Uint8Array) {
     let countInTxLine = 0
@@ -147,7 +147,7 @@ export class BinaryOutput extends OutputBox<number, Uint8Array> {
     for(const item of items) {
       if (curTxLine==null) {
         curTxLine = this.newTxLine()
-        curTxLine.style.width = '23ch'
+        curTxLine.style.setProperty('width', '23ch')
       }
       if (countInTxLine) curTxLine.innerText += ' '
       curTxLine.innerText += item.toString(16).padStart(2,'0')

@@ -83,6 +83,7 @@ export class SerialInterface {
       btnShowPorts.classList.add('btn-success')
       btnShowPorts.classList.remove('btn-outline-success')
     })
+    this.ulPorts.addEventListener('shown.bs.collapse', () => ctx.scrollTo(this.ulPorts))
     this.ulPorts.addEventListener('hidden.bs.collapse', () => {
       btnShowPorts.classList.add('btn-outline-success')
       btnShowPorts.classList.remove('btn-success')
@@ -92,10 +93,10 @@ export class SerialInterface {
       <button type="button" class="btn btn-outline-danger flex-grow-1" disabled><i class="bi-x-octagon me-1"/> Disconnect</button>)
     this.settings.btnExpand.classList.add('flex-grow-1')
 
-    this.textOutput = new TextOutput()
+    this.textOutput = new TextOutput(ctx)
     this.textInput = new TextInput(ctx)
 
-    this.binaryOutput = new BinaryOutput()
+    this.binaryOutput = new BinaryOutput(ctx)
     this.binaryInput = new BinaryInput(ctx)
 
     const panelText = <div class="tab-pane fade show active" id={ctx.genId()} role="tabpanel">
@@ -108,8 +109,14 @@ export class SerialInterface {
       data-bs-toggle="tab" data-bs-target={'#'+panelBinary.id} aria-controls={panelBinary.id} aria-selected="false">Binary</button>
     panelText.setAttribute('aria-labelledby', tabText.id)
     panelBinary.setAttribute('aria-labelledby', tabBinary.id)
-    tabText.addEventListener('shown.bs.tab', () => this.textOutput.shown())
-    tabBinary.addEventListener('shown.bs.tab', () => this.binaryOutput.shown())
+    tabText.addEventListener('shown.bs.tab', () => {
+      this.textOutput.shown()
+      ctx.scrollTo(panelText)
+  })
+    tabBinary.addEventListener('shown.bs.tab', () => {
+      this.binaryOutput.shown()
+      ctx.scrollTo(panelBinary)
+    })
     this.btnCloseConn = safeCastElement(HTMLButtonElement,
       <button type="button" class="btn-close" aria-label="Close" disabled></button>)
     this.divConnected = safeCastElement(HTMLDivElement,

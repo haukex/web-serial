@@ -112,6 +112,7 @@ export class SerialSettings {
       this.btnExpand.classList.add('btn-primary')
       this.btnExpand.classList.remove('btn-outline-primary')
     })
+    this.el.addEventListener('shown.bs.collapse', () => ctx.scrollTo(this.el))
     this.el.addEventListener('hidden.bs.collapse', () => {
       this.btnExpand.classList.add('btn-outline-primary')
       this.btnExpand.classList.remove('btn-primary')
