@@ -204,6 +204,7 @@ export class SerialInterface {
     if ('bluetooth' in navigator) {
       this.btnBTScan.addEventListener('click', async () => {
         let bt = null
+        // TODO Later: Filter Bluetooth devices by ones offering serial ports?
         try { bt = await navigator.bluetooth.requestDevice({ acceptAllDevices: true }) }
         catch (ex) {
           if (ex instanceof DOMException && ex.name === 'NotFoundError') {/* Assume cancelled, though the docs don't say that. */}
