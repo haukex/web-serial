@@ -256,6 +256,8 @@ export class SerialInterface {
     const opt = this.settings.getSerialOptions()
     console.debug('open', portString(port), opt)
     this.updateState({ connected: true })
+    // TODO: actually need an intermediate state "connecting" here where everything is disabled
+    // (open can take a few seconds and then fail)
 
     try { await port.open(opt) }
     catch (ex) {
