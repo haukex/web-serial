@@ -80,8 +80,6 @@ abstract class InputBox<T extends NonNullable<unknown>> {
   }
   set writer(w :InputWriter<T>|null) {
     this._writer = w
-    if (w) this.clear()
-    else this.setDisabled(true)
   }
   setDisabled(disabled :boolean = true) {
     this.input.readOnly = disabled

@@ -38,6 +38,8 @@ export function portString(p :SerialPort) :string {
     : usb ?? '(unknown device)'
 }
 
+type State = 'disconnected'|'connecting'|'connected'|'disconnecting'
+
 export class SerialInterface {
   readonly ctx :GlobalContext
   readonly el :HTMLElement
@@ -204,7 +206,10 @@ export class SerialInterface {
     if ('bluetooth' in navigator) {
       this.btnBTScan.addEventListener('click', async () => {
         let bt = null
-        // TODO Later: Filter Bluetooth devices by ones offering serial ports?
+        /* Unfortunately, this doesn't work, since the Web Bluetooth API is documented to work mostly for
+         * GATT devices, and the advice I've found says that the Web Serial API is the way to go but the
+         * Bluetooth device needs to be paired in the OS first. */
+        //try { bt = await navigator.bluetooth.requestDevice({ filters: [ { services: [0x1101] } ] }) }
         try { bt = await navigator.bluetooth.requestDevice({ acceptAllDevices: true }) }
         catch (ex) {
           if (ex instanceof DOMException && ex.name === 'NotFoundError') {/* Assume cancelled, though the docs don't say that. */}
@@ -227,43 +232,42 @@ export class SerialInterface {
     this.el.appendChild(divAlert)
   }
 
-  private connected :boolean = false
-  private updateState(state ?:{ connected :boolean }) {
-    const connected = state ? state.connected : this.connected
-    this.settings.setDisabled(connected)
-    this.btnRequest.disabled = connected
-    this.buttons.forEach(btn => btn.disabled = connected)
-    this.btnDisconnect.disabled = !connected
-    this.btnDisconnect.classList.toggle('btn-danger', connected)
-    this.btnDisconnect.classList.toggle('btn-outline-danger', !connected)
-    this.textInput.setDisabled(!connected)
-    this.binaryInput.setDisabled(!connected)
-    this.btnCloseConn.disabled = connected
-    this.btnCloseConn.classList.toggle('visually-hidden', connected)
+  private _state :State = 'disconnected'
+  private updateState(state ?:State) {
+    const con = (state ?? this._state) === 'connected'
+    const dis = (state ?? this._state) === 'disconnected'
+    this.settings.setDisabled(!dis)
+    this.btnRequest.disabled = !dis
+    this.buttons.forEach(btn => btn.disabled = !dis)
+    this.btnDisconnect.disabled = !con
+    this.btnDisconnect.classList.toggle('btn-danger', con)
+    this.btnDisconnect.classList.toggle('btn-outline-danger', !con)
+    this.textInput.setDisabled(!con)
+    this.binaryInput.setDisabled(!con)
+    this.btnCloseConn.disabled = !dis
+    this.btnCloseConn.classList.toggle('visually-hidden', !dis)
     const collPorts = Collapse.getOrCreateInstance(this.ulPorts, { toggle: false })
     const collConn = Collapse.getOrCreateInstance(this.divConnected, { toggle: false })
-    if (state && state.connected) {
+    if (state && state==='connecting') {
       this.settings.hide()
       collPorts.hide()
       collConn.show()
-    } else if (state && !state.connected) {
+    } else if (state && state==='disconnected') {
       collPorts.show()
       //collConn.hide()  // only on manual close
     }
-    this.connected = connected
+    if (state) this._state = state
   }
 
   private async connect(port :SerialPort) {
     const opt = this.settings.getSerialOptions()
     console.debug('open', portString(port), opt)
-    this.updateState({ connected: true })
-    // TODO: actually need an intermediate state "connecting" here where everything is disabled
-    // (open can take a few seconds and then fail)
+    this.updateState('connecting')
 
     try { await port.open(opt) }
     catch (ex) {
+      this.updateState('disconnected')
       alert(`Failed to open serial port: ${String(ex)}`)
-      this.updateState({ connected: false })
       return
     }
 
@@ -319,6 +323,9 @@ export class SerialInterface {
     }
     const readUntilClosedPromise = readUntilClosed()
 
+    this.textInput.clear()
+    this.binaryInput.clear()
+
     const txEncoder = new TextEncoder()  // always UTF-8
     const txDecoder = new TextDecoder('UTF-8', { fatal: false, ignoreBOM: false })
     const writeToPort = async (data :Uint8Array|string) => {
@@ -343,6 +350,7 @@ export class SerialInterface {
 
     const closeHandler = async () => {
       console.debug('closing')
+      this.updateState('disconnecting')
       keepReading = false
       this.btnDisconnect.removeEventListener('click', closeHandler)
       this.textInput.writer = null
@@ -352,9 +360,10 @@ export class SerialInterface {
       try { await bytesReader.cancel() } catch (ex) { console.debug('Ignoring', ex) }
       await readUntilClosedPromise
       console.debug('closed', portString(port))
-      this.updateState({ connected: false })
+      this.updateState('disconnected')
     }
     this.btnDisconnect.addEventListener('click', closeHandler)
+    this.updateState('connected')
 
   }
 
