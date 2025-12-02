@@ -22,16 +22,16 @@
     "@eslint/js": ">=9.38.0 <9.39.0 || >9.39.0",
     "@parcel/transformer-sass": "^2.16.1",
     "@parcel/transformer-typescript-tsc": "^2.16.1",
-    "@stylistic/eslint-plugin": "^5.5.0",
+    "@stylistic/eslint-plugin": "^5.6.1",
     "@types/bootstrap": "^5.2.10",
-    "@types/node": "^24.10.0",
+    "@types/node": "^24.10.1",
     "@types/w3c-web-serial": "^1.0.8",
     "@types/web-bluetooth": "^0.0.21",
     "@types/webpack-env": "^1.18.8",
     "eslint": ">=9.38.0 <9.39.0 || >9.39.0",
     "parcel": "^2.16.1",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.3"
+    "typescript-eslint": "^8.48.1"
   },
   "dependencies": {
     "@popperjs/core": "^2.11.8",
