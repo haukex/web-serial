@@ -68,13 +68,14 @@ export class SerialInterface {
     this.ctx = ctx
     this.btnRequest = safeCastElement(HTMLButtonElement,
       <button type="button" class="list-group-item list-group-item-action list-group-item-primary">
-        <i class="bi-plus-circle me-1"/> Request New Port</button>)
+        <i class="bi-plug-fill"/><i class="bi-plus-circle me-1"/> <strong>Request Port</strong></button>)
     this.btnAddBlue = safeCastElement(HTMLButtonElement,
-      <button type="button" class="list-group-item list-group-item-action list-group-item-primary">
+      <button type="button" class="list-group-item list-group-item-action list-group-item-secondary">
         <i class="bi-bluetooth"/><i class="bi-node-plus me-1"/> Add custom Bluetooth UUID</button>)
     this.btnBTScan = safeCastElement(HTMLButtonElement,
-      <button type="button" class="list-group-item list-group-item-action list-group-item-primary" disabled>
-        <i class="bi-bluetooth"/><i class="bi-patch-question me-1"/> Scan for Bluetooth devices</button>)
+      <button type="button" class="list-group-item list-group-item-action list-group-item-secondary" disabled>
+        <i class="bi-bluetooth"/><i class="bi-patch-question me-1"/> Scan for Bluetooth LE devices
+        <small> (GATT; typically not serial ports; for testing permissions)</small></button>)
     this.ulPorts = safeCastElement(HTMLDivElement,
       <div class="list-group collapse show" aria-expanded="true" id={ctx.genId()}>
         {this.btnRequest}{this.btnAddBlue}{this.btnBTScan}</div>)
@@ -167,7 +168,7 @@ export class SerialInterface {
       btnPort.classList.add(port.connected ? 'list-group-item-success' : 'list-group-item-warning')
       return btnPort
     })
-    this.ulPorts.replaceChildren(...this.buttons, this.btnRequest, this.btnAddBlue, this.btnBTScan)
+    this.ulPorts.replaceChildren(this.btnRequest, ...this.buttons, this.btnAddBlue, this.btnBTScan)
     this.updateState()
   }
 
